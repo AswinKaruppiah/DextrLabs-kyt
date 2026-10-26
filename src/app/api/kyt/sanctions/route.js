@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 import { getAllSanctionedEntities, loadSanctionsCache } from "@/lib/intelligence/sanctionsRegistry";
-import { downloadAndAggregateSanctions } from "@/lib/intelligence/sanctionsDownloader";
-
 
 /**
  * GET /api/kyt/sanctions
@@ -21,11 +19,7 @@ export async function GET(request) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    let cache = loadSanctionsCache();
-    // If cache is empty, trigger a background or initial sync
-    if (!cache.totalCount || cache.totalCount === 0) {
-      cache = await downloadAndAggregateSanctions();
-    }
+    const cache = loadSanctionsCache();
 
     const { total, lastSync, providerCounts, chainCounts, items } = getAllSanctionedEntities({
       search,

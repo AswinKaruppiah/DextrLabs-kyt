@@ -1,9 +1,9 @@
 {
-  "lastSync": "2026-10-26T14:13:36.123Z",
-  "totalCount": 1109,
+  "lastSync": "2026-10-26T14:40:56.567Z",
+  "totalCount": 1060,
   "providerCounts": {
-    "US-OFAC": 514,
-    "OPENSANCTIONS": 1109,
+    "US-OFAC": 465,
+    "OPENSANCTIONS": 1060,
     "UK-OFSI": 55,
     "IL-NBCTF": 584,
     "JAPAN-MOFA": 9,
@@ -11,8 +11,7 @@
   },
   "chainCounts": {
     "TRON": 920,
-    "ETHEREUM": 140,
-    "OTHER": 49
+    "ETHEREUM": 140
   },
   "addresses": {
     "TA3rH2A7iHnm6pKH8gr9cK1EZnShnmZdFg": {
@@ -10851,58 +10850,6 @@
         }
       ]
     },
-    "47FVhkRkWgnLs81UBqgY8ui6axAB1627HJjkY2qPnWxMbGfx7387kcY6RzScHgGMQAaH6CBxKXAS4862tS2fhs9BRdmuyav": {
-      "address": "47FVhkRkWgnLs81UBqgY8ui6axAB1627HJjkY2qPnWxMbGfx7387kcY6RzScHgGMQAaH6CBxKXAS4862tS2fhs9BRdmuyav",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-0669b7fb35703369152822d9139b805ff83333ad",
-          "ref": "ofac-0669b7fb35703369152822d9139b805ff83333ad"
-        }
-      ]
-    },
-    "qpf2cphc5dkuclkqur7lhj2yuqq9pk3hmukle77vhq": {
-      "address": "qpf2cphc5dkuclkqur7lhj2yuqq9pk3hmukle77vhq",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-077ec316c470209c41deb8f2f1e480e017b1b47f",
-          "ref": "ofac-077ec316c470209c41deb8f2f1e480e017b1b47f"
-        }
-      ]
-    },
     "TGKgLatirRpTugS6wgCUKerjLbzWKXAVqx": {
       "address": "TGKgLatirRpTugS6wgCUKerjLbzWKXAVqx",
       "chain": "TRON",
@@ -10927,58 +10874,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-0a03e47511c1685c9fb716902006e323715ae01b",
           "ref": "ofac-0a03e47511c1685c9fb716902006e323715ae01b"
-        }
-      ]
-    },
-    "LQAhYwwK5AR1JQiQPr7vu8Pu4b6qcxxvNB": {
-      "address": "LQAhYwwK5AR1JQiQPr7vu8Pu4b6qcxxvNB",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-0bd96753ab47719ea5c91beb96fa763d93536023",
-          "ref": "ofac-0bd96753ab47719ea5c91beb96fa763d93536023"
-        }
-      ]
-    },
-    "LeKvNdNEzgQkzVVnRdV3fAu2DSF1nLsNw6": {
-      "address": "LeKvNdNEzgQkzVVnRdV3fAu2DSF1nLsNw6",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-0cd725ec532900d0ed7f9878542e5680d7f78b51",
-          "ref": "ofac-0cd725ec532900d0ed7f9878542e5680d7f78b51"
         }
       ]
     },
@@ -11087,32 +10982,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-1ce791cb464d57bca9e3735c388f8ee91455874e",
           "ref": "ofac-1ce791cb464d57bca9e3735c388f8ee91455874e"
-        }
-      ]
-    },
-    "GPwg61XoHqQPNmAucFACuQ5H9sGCDv9TpS": {
-      "address": "GPwg61XoHqQPNmAucFACuQ5H9sGCDv9TpS",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-1f6cf14345ee6d8165b66ba71eb22d1bf0cbd481",
-          "ref": "ofac-1f6cf14345ee6d8165b66ba71eb22d1bf0cbd481"
         }
       ]
     },
@@ -11404,32 +11273,6 @@
         }
       ]
     },
-    "LcP1DumXkNJbBtSYD3XxAfsJ2nZR5hLdpM": {
-      "address": "LcP1DumXkNJbBtSYD3XxAfsJ2nZR5hLdpM",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-326d75bd4556be8963617400259493a30b9abd31",
-          "ref": "ofac-326d75bd4556be8963617400259493a30b9abd31"
-        }
-      ]
-    },
     "TVn4q7L4fKEPbygi7UHq1CKfZxtbeuMV5q": {
       "address": "TVn4q7L4fKEPbygi7UHq1CKfZxtbeuMV5q",
       "chain": "TRON",
@@ -11481,32 +11324,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-334b2cb453976ad9b67bf7d871dfaa2a3f54f0a5",
           "ref": "ofac-334b2cb453976ad9b67bf7d871dfaa2a3f54f0a5"
-        }
-      ]
-    },
-    "Xs3vzQmNvAxRa3Xo8XzQqUb3BMgb9EogF4": {
-      "address": "Xs3vzQmNvAxRa3Xo8XzQqUb3BMgb9EogF4",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-34110f44716670fa73e77482d5b87c0d3677352c",
-          "ref": "ofac-34110f44716670fa73e77482d5b87c0d3677352c"
         }
       ]
     },
@@ -11573,32 +11390,6 @@
         }
       ]
     },
-    "86ze8c9oUftDSTxzFBhfSJYpjvw6GYkqjeEaggy3hBVL1ou2tk79DfSj5YiZ3wjDHp541tizcQ8bVCxCtVHQncuc3asa8wz": {
-      "address": "86ze8c9oUftDSTxzFBhfSJYpjvw6GYkqjeEaggy3hBVL1ou2tk79DfSj5YiZ3wjDHp541tizcQ8bVCxCtVHQncuc3asa8wz",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-3a071ff79475e88c2e0801571d7976a550e04c39",
-          "ref": "ofac-3a071ff79475e88c2e0801571d7976a550e04c39"
-        }
-      ]
-    },
     "TPF9UQhqpV18BPWg5xo6MeB3h8t4iEg9gP": {
       "address": "TPF9UQhqpV18BPWg5xo6MeB3h8t4iEg9gP",
       "chain": "TRON",
@@ -11653,32 +11444,6 @@
         }
       ]
     },
-    "LaizKtS5DUhPuP1nTQcc83MS7HwK6vk85z": {
-      "address": "LaizKtS5DUhPuP1nTQcc83MS7HwK6vk85z",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-3c4ad4ffb38611ff017af8cbb51cbdbabd2a68cd",
-          "ref": "ofac-3c4ad4ffb38611ff017af8cbb51cbdbabd2a68cd"
-        }
-      ]
-    },
     "TXFUYHVJMDyKikutvCG6qNgTUS5pxtZhHs": {
       "address": "TXFUYHVJMDyKikutvCG6qNgTUS5pxtZhHs",
       "chain": "TRON",
@@ -11703,32 +11468,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-3fafd614491cd7dff5f7afe0fa56831050e7e60f",
           "ref": "ofac-3fafd614491cd7dff5f7afe0fa56831050e7e60f"
-        }
-      ]
-    },
-    "t1MMXtBrSp1XG38Lx9cePcNUCJj5vdWfUWL": {
-      "address": "t1MMXtBrSp1XG38Lx9cePcNUCJj5vdWfUWL",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-4061e07dbc0bbe1599c46fdc3e14595d4678b98d",
-          "ref": "ofac-4061e07dbc0bbe1599c46fdc3e14595d4678b98d"
         }
       ]
     },
@@ -11759,32 +11498,6 @@
         }
       ]
     },
-    "XcuGqRfrR85zyDrzVr1gSL5RNjwwpbu2KS": {
-      "address": "XcuGqRfrR85zyDrzVr1gSL5RNjwwpbu2KS",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-450dc11f9e132c357288e6b93b6c54a3e644f6e5",
-          "ref": "ofac-450dc11f9e132c357288e6b93b6c54a3e644f6e5"
-        }
-      ]
-    },
     "TUCsTq7TofTCJRRoHk6RvhMoS2mJLm5Yzq": {
       "address": "TUCsTq7TofTCJRRoHk6RvhMoS2mJLm5Yzq",
       "chain": "TRON",
@@ -11809,32 +11522,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-45673b6611e5ba982ef7a775dd814214d33cf18f",
           "ref": "ofac-45673b6611e5ba982ef7a775dd814214d33cf18f"
-        }
-      ]
-    },
-    "t1WSKwCDL1QYRRUrCCknEs5tDLhtGVYu9KM": {
-      "address": "t1WSKwCDL1QYRRUrCCknEs5tDLhtGVYu9KM",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-45e08b65b0b03f7ed9921b823f76100ebf2f0753",
-          "ref": "ofac-45e08b65b0b03f7ed9921b823f76100ebf2f0753"
         }
       ]
     },
@@ -11892,32 +11579,6 @@
         }
       ]
     },
-    "ltc1qr8ntsedq8tv0svmxqhzvdcdl5k7kntdmnhwep7": {
-      "address": "ltc1qr8ntsedq8tv0svmxqhzvdcdl5k7kntdmnhwep7",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-4ad245c71ca6d98ea2ab17c0cecb4cb4109952bf",
-          "ref": "ofac-4ad245c71ca6d98ea2ab17c0cecb4cb4109952bf"
-        }
-      ]
-    },
     "TJ812KESWjzJZGEWBPFCu74Js5zQS7jN5A": {
       "address": "TJ812KESWjzJZGEWBPFCu74Js5zQS7jN5A",
       "chain": "TRON",
@@ -11945,32 +11606,6 @@
         }
       ]
     },
-    "884Bz8UH63aYsjVdkfWfScRYWZGGNbjFL7pztqvWNSrtYT4reFSwyvkCj9KEGUtheHhhMUj87ciTBFyzoesrMJ4L1FvSoxL": {
-      "address": "884Bz8UH63aYsjVdkfWfScRYWZGGNbjFL7pztqvWNSrtYT4reFSwyvkCj9KEGUtheHhhMUj87ciTBFyzoesrMJ4L1FvSoxL",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-4c83ca822c85b3671460b35d01c405ab50b6b445",
-          "ref": "ofac-4c83ca822c85b3671460b35d01c405ab50b6b445"
-        }
-      ]
-    },
     "TA3941uFAvmVibSkQ6fMJXxmaSNovX86mz": {
       "address": "TA3941uFAvmVibSkQ6fMJXxmaSNovX86mz",
       "chain": "TRON",
@@ -11995,32 +11630,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-50f88d0f5b9429953f4705fa1c571129b2e26f80",
           "ref": "ofac-50f88d0f5b9429953f4705fa1c571129b2e26f80"
-        }
-      ]
-    },
-    "45ezvPejNsKYntjhyyeb7fbfzi1sxYQozc5Ffseh8jPGW4JZQQVXykNTfK5uGFiij7Hp3qPv3T5HCR7F3Fnmz2mzE1aKQwo": {
-      "address": "45ezvPejNsKYntjhyyeb7fbfzi1sxYQozc5Ffseh8jPGW4JZQQVXykNTfK5uGFiij7Hp3qPv3T5HCR7F3Fnmz2mzE1aKQwo",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-511cb35c4638c189d9866b4b01a80cbc27dc8938",
-          "ref": "ofac-511cb35c4638c189d9866b4b01a80cbc27dc8938"
         }
       ]
     },
@@ -12078,84 +11687,6 @@
         }
       ]
     },
-    "XowUeMFa1FkEUnAHL78E5oqpezMfSB6xP1": {
-      "address": "XowUeMFa1FkEUnAHL78E5oqpezMfSB6xP1",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-56fa273768d5d6e450c2a445729e676b6eac03a4",
-          "ref": "ofac-56fa273768d5d6e450c2a445729e676b6eac03a4"
-        }
-      ]
-    },
-    "Leo3j36nn1JcsUQruytQhFUdCdCH5YHMR3": {
-      "address": "Leo3j36nn1JcsUQruytQhFUdCdCH5YHMR3",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-5966ed18e562d613b354423ce51f57d8e0f7e67c",
-          "ref": "ofac-5966ed18e562d613b354423ce51f57d8e0f7e67c"
-        }
-      ]
-    },
-    "6wjqWWra8ombzaw6VHrG5xpQ972jCYF6bbHiFCbWmr4U": {
-      "address": "6wjqWWra8ombzaw6VHrG5xpQ972jCYF6bbHiFCbWmr4U",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-5a554d1170337df9850d93eb581f13843cc02c78",
-          "ref": "ofac-5a554d1170337df9850d93eb581f13843cc02c78"
-        }
-      ]
-    },
     "TMgnRWb9xFMtktny9Lzty21QYLLQD93ft6": {
       "address": "TMgnRWb9xFMtktny9Lzty21QYLLQD93ft6",
       "chain": "TRON",
@@ -12180,32 +11711,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-5e7c3d21c6962a7380c05865efa6461b276d736c",
           "ref": "ofac-5e7c3d21c6962a7380c05865efa6461b276d736c"
-        }
-      ]
-    },
-    "LNf2JDiuunBz7GMDKFYHN4rq5meXWxiwfb": {
-      "address": "LNf2JDiuunBz7GMDKFYHN4rq5meXWxiwfb",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-5f11d4d68d214c941eded564bdb9f64e61ac4986",
-          "ref": "ofac-5f11d4d68d214c941eded564bdb9f64e61ac4986"
         }
       ]
     },
@@ -12263,32 +11768,6 @@
         }
       ]
     },
-    "8ANG5NBnApL94YAKRfCSaS7g2fjEi1DWVcFNTn3wQ5HpfsgtnusgxaXE24bbhXukTgF8esRnMsWaReRiqNbSBSbmRE5Nm5M": {
-      "address": "8ANG5NBnApL94YAKRfCSaS7g2fjEi1DWVcFNTn3wQ5HpfsgtnusgxaXE24bbhXukTgF8esRnMsWaReRiqNbSBSbmRE5Nm5M",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-63291c4543fa9e8378130d36e75ba4163c332e5c",
-          "ref": "ofac-63291c4543fa9e8378130d36e75ba4163c332e5c"
-        }
-      ]
-    },
     "TMiSGhXXVsvJzqwGbwAsGiFxWg2eALZoM5": {
       "address": "TMiSGhXXVsvJzqwGbwAsGiFxWg2eALZoM5",
       "chain": "TRON",
@@ -12316,84 +11795,6 @@
         }
       ]
     },
-    "49HqitRzdnhYjgTEAhgGpCfsjdTeMbUTU6cyR4JV1R7k2Eej9rGT8JpFiYDa4tZM6RZiFrHmMzgSrhHEqpDYKBe5B2ufNsL": {
-      "address": "49HqitRzdnhYjgTEAhgGpCfsjdTeMbUTU6cyR4JV1R7k2Eej9rGT8JpFiYDa4tZM6RZiFrHmMzgSrhHEqpDYKBe5B2ufNsL",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-68c32610dc6eba0007edc6927cc71ee3ddf0c260",
-          "ref": "ofac-68c32610dc6eba0007edc6927cc71ee3ddf0c260"
-        }
-      ]
-    },
-    "qqyuc9s700plhzr6awzru7g5z2d2p906uyrm6ht0r0": {
-      "address": "qqyuc9s700plhzr6awzru7g5z2d2p906uyrm6ht0r0",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-6c4b7ebd7d6860acf0e71bece1257a12e0b344b9",
-          "ref": "ofac-6c4b7ebd7d6860acf0e71bece1257a12e0b344b9"
-        }
-      ]
-    },
-    "44dZUJ7w1T3fKAvFW8XyXUVoAGSbFvXef2wcbnsjNKGWYorpLJBjth5VKSFhLGkpYKJb2J341tdZHBnbpv72WL7e8zuxfR2": {
-      "address": "44dZUJ7w1T3fKAvFW8XyXUVoAGSbFvXef2wcbnsjNKGWYorpLJBjth5VKSFhLGkpYKJb2J341tdZHBnbpv72WL7e8zuxfR2",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-6dae6cf5c1c0f6e191ccb351401b011cc6f8c6f9",
-          "ref": "ofac-6dae6cf5c1c0f6e191ccb351401b011cc6f8c6f9"
-        }
-      ]
-    },
     "TE3mCcPULjPUE7ykX7RArDPAhyahoy3d2j": {
       "address": "TE3mCcPULjPUE7ykX7RArDPAhyahoy3d2j",
       "chain": "TRON",
@@ -12418,32 +11819,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-6e04b4d3ba63bdda03c26061fc880a4fd73d1313",
           "ref": "ofac-6e04b4d3ba63bdda03c26061fc880a4fd73d1313"
-        }
-      ]
-    },
-    "84AwzjeFWXNEuhj8LWinXo93AqYr6wS8ZcnaBCoGhrL7EtvBMBovdhiUSV9xLhjrPA8t64hYSaMc8bHtWXoV9129EHUjU62": {
-      "address": "84AwzjeFWXNEuhj8LWinXo93AqYr6wS8ZcnaBCoGhrL7EtvBMBovdhiUSV9xLhjrPA8t64hYSaMc8bHtWXoV9129EHUjU62",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-6e37ff9ae2067ff0a8846db95521e259ef7da915",
-          "ref": "ofac-6e37ff9ae2067ff0a8846db95521e259ef7da915"
         }
       ]
     },
@@ -12528,84 +11903,6 @@
         }
       ]
     },
-    "qzjv8hrdvz6edu4gkzpnd4w6jc7zf296g5e9kkq4lx": {
-      "address": "qzjv8hrdvz6edu4gkzpnd4w6jc7zf296g5e9kkq4lx",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-73c726c11e5fb0533b9186e4761c39ad54de3317",
-          "ref": "ofac-73c726c11e5fb0533b9186e4761c39ad54de3317"
-        }
-      ]
-    },
-    "rnXyVQzgxZe7TR1EPzTkGj2jxH4LMJYh66": {
-      "address": "rnXyVQzgxZe7TR1EPzTkGj2jxH4LMJYh66",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-7500c07580acd530e9e52b47155f2ca5604c6d70",
-          "ref": "ofac-7500c07580acd530e9e52b47155f2ca5604c6d70"
-        }
-      ]
-    },
-    "XnPFsRWTaSgiVauosEwQ6dEitGYXgwznz2": {
-      "address": "XnPFsRWTaSgiVauosEwQ6dEitGYXgwznz2",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-75056baa04bf28ed14c395d5b309e85f66089952",
-          "ref": "ofac-75056baa04bf28ed14c395d5b309e85f66089952"
-        }
-      ]
-    },
     "0x175d44451403edf28469df03a9280c1197adb92c": {
       "address": "0x175d44451403Edf28469dF03A9280c1197ADb92c",
       "chain": "ETHEREUM",
@@ -12666,32 +11963,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-79d96281d6411fedce571ed1af68544f0b7ea647",
           "ref": "ofac-79d96281d6411fedce571ed1af68544f0b7ea647"
-        }
-      ]
-    },
-    "LaYUy1DGfVSuSF5KbPhbLrm8kRotqiwUJn": {
-      "address": "LaYUy1DGfVSuSF5KbPhbLrm8kRotqiwUJn",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-800ad846f75ad531ffe9b3a9a0ce25e0a0d3a1a0",
-          "ref": "ofac-800ad846f75ad531ffe9b3a9a0ce25e0a0d3a1a0"
         }
       ]
     },
@@ -12776,32 +12047,6 @@
         }
       ]
     },
-    "LNwgtMxcKUQ51dw7bQL1yPQjBVZh6QEqsd": {
-      "address": "LNwgtMxcKUQ51dw7bQL1yPQjBVZh6QEqsd",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-88f4332d2b37f24f86e6b74243673cf0b6d9d6d2",
-          "ref": "ofac-88f4332d2b37f24f86e6b74243673cf0b6d9d6d2"
-        }
-      ]
-    },
     "TH96tFMn8KGiYSLiwcV3E2UiaJc8jmcbz3": {
       "address": "TH96tFMn8KGiYSLiwcV3E2UiaJc8jmcbz3",
       "chain": "TRON",
@@ -12838,32 +12083,6 @@
         }
       ]
     },
-    "DTqpKQ96rqkTvHcohQQd9BksmgRjasHgGo": {
-      "address": "DTqpKQ96rqkTvHcohQQd9BksmgRjasHgGo",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-8b56eb06ca901b1e57d7ed743d7ac0176f2817aa",
-          "ref": "ofac-8b56eb06ca901b1e57d7ed743d7ac0176f2817aa"
-        }
-      ]
-    },
     "THUqqeevBQS3EYordDJKwp8DLFknesnfCD": {
       "address": "THUqqeevBQS3EYordDJKwp8DLFknesnfCD",
       "chain": "TRON",
@@ -12888,58 +12107,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-8b7deeb56a52b418be91dc3a576ae03580ccde98",
           "ref": "ofac-8b7deeb56a52b418be91dc3a576ae03580ccde98"
-        }
-      ]
-    },
-    "Fc1EwQUZyTEagaDvA1utHXCcZNyG1x2PLt2DfNu1cJdH": {
-      "address": "Fc1EwQUZyTEagaDvA1utHXCcZNyG1x2PLt2DfNu1cJdH",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-9077dc2debdd38e5ae86134d3cf95051cc879c3d",
-          "ref": "ofac-9077dc2debdd38e5ae86134d3cf95051cc879c3d"
-        }
-      ]
-    },
-    "bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23": {
-      "address": "bnb136ns6lfw4zs5hg4n85vdthaad7hq5m4gtkgf23",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-909e9fc6b756862fcb7adf79ea5ffc773a32e408",
-          "ref": "ofac-909e9fc6b756862fcb7adf79ea5ffc773a32e408"
         }
       ]
     },
@@ -13051,58 +12218,6 @@
         }
       ]
     },
-    "XyARKoupuArYtToA2S6yMdnoquDCDaBsaT": {
-      "address": "XyARKoupuArYtToA2S6yMdnoquDCDaBsaT",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-970bea2f75a10ddf58face83e026b50efa92f641",
-          "ref": "ofac-970bea2f75a10ddf58face83e026b50efa92f641"
-        }
-      ]
-    },
-    "LbPAqHvemZBv3pvAqiAtDnZ3U1t6EziaL1": {
-      "address": "LbPAqHvemZBv3pvAqiAtDnZ3U1t6EziaL1",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-989dc6a2338ecbfdebff9010eeb45246cc2dd2b6",
-          "ref": "ofac-989dc6a2338ecbfdebff9010eeb45246cc2dd2b6"
-        }
-      ]
-    },
     "TQKQ4ntejdYYJpuYkFz8oCSDoXW6RKRDdY": {
       "address": "TQKQ4ntejdYYJpuYkFz8oCSDoXW6RKRDdY",
       "chain": "TRON",
@@ -13154,32 +12269,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-9bbb2c5a6c1eaa7797127014555a12056fc7c959",
           "ref": "ofac-9bbb2c5a6c1eaa7797127014555a12056fc7c959"
-        }
-      ]
-    },
-    "t1g7wowvQ8gn2v8jrU1biyJ26sieNqNsBJy": {
-      "address": "t1g7wowvQ8gn2v8jrU1biyJ26sieNqNsBJy",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-9d6d3cfabd764c2c7d3a811f6a7b7e30dc28770f",
-          "ref": "ofac-9d6d3cfabd764c2c7d3a811f6a7b7e30dc28770f"
         }
       ]
     },
@@ -13264,58 +12353,6 @@
         }
       ]
     },
-    "88wRZuGMuC5YQvXpKpeLFHQeZWW28XtGyZCizkqeypTaRcjzNNKVrCg7PpoEeWaj5A7wwbh5M2X9ycXrfUkbeptACsG4bVn": {
-      "address": "88wRZuGMuC5YQvXpKpeLFHQeZWW28XtGyZCizkqeypTaRcjzNNKVrCg7PpoEeWaj5A7wwbh5M2X9ycXrfUkbeptACsG4bVn",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-a4964189bbcb954d8e40fea6becfdd9723a0024c",
-          "ref": "ofac-a4964189bbcb954d8e40fea6becfdd9723a0024c"
-        }
-      ]
-    },
-    "42RLPACwZPx3vYYmxSueqsogfynBDqXK298EDsNoyoHi": {
-      "address": "42RLPACwZPx3vYYmxSueqsogfynBDqXK298EDsNoyoHi",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-a558462b7726928ad9f97278faff1d8a9e9a4267",
-          "ref": "ofac-a558462b7726928ad9f97278faff1d8a9e9a4267"
-        }
-      ]
-    },
     "TXEaKf4rT3rMoD3Vuqnuhwr6vLq6BL5t33": {
       "address": "TXEaKf4rT3rMoD3Vuqnuhwr6vLq6BL5t33",
       "chain": "TRON",
@@ -13367,32 +12404,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-a8c25a3daabee85469e61288668680efd25c7a5b",
           "ref": "ofac-a8c25a3daabee85469e61288668680efd25c7a5b"
-        }
-      ]
-    },
-    "5be5543ff73456ab9f2d207887e2af87322c651ea1a873c5b25b7ffae456c320": {
-      "address": "5be5543ff73456ab9f2d207887e2af87322c651ea1a873c5b25b7ffae456c320",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-a9f4fccb66da985e2a1903a5f66de892d4dbc6a7",
-          "ref": "ofac-a9f4fccb66da985e2a1903a5f66de892d4dbc6a7"
         }
       ]
     },
@@ -13558,32 +12569,6 @@
         }
       ]
     },
-    "qz9f2vz3033sg5vc5mf7m7xshmj0jugy4ummf05jk8": {
-      "address": "qz9f2vz3033sg5vc5mf7m7xshmj0jugy4ummf05jk8",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-bba99ebacd3ecc8962eee10f6b405acd25f57d30",
-          "ref": "ofac-bba99ebacd3ecc8962eee10f6b405acd25f57d30"
-        }
-      ]
-    },
     "TDNKsLvsY2iSznyghddXz7ZDRc4X3191Z8": {
       "address": "TDNKsLvsY2iSznyghddXz7ZDRc4X3191Z8",
       "chain": "TRON",
@@ -13638,32 +12623,6 @@
         }
       ]
     },
-    "LWnbjLYUfqeokfbWM4FcU7uk2FP2DSxuWS": {
-      "address": "LWnbjLYUfqeokfbWM4FcU7uk2FP2DSxuWS",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-c59aacb90a08f1cf77282ce33aa4d5a23c542dde",
-          "ref": "ofac-c59aacb90a08f1cf77282ce33aa4d5a23c542dde"
-        }
-      ]
-    },
     "TGRZZsD8gxahF5oE6C7K8LLRHqQzoPa5bX": {
       "address": "TGRZZsD8gxahF5oE6C7K8LLRHqQzoPa5bX",
       "chain": "TRON",
@@ -13688,58 +12647,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-c646b6cb8ea7390d41c1cde4308bedbcd0fd46d1",
           "ref": "ofac-c646b6cb8ea7390d41c1cde4308bedbcd0fd46d1"
-        }
-      ]
-    },
-    "87XWTP9tBECHXCwbyMK1KENoy4GeXkRviNzmhNc5Pvo5ExZ1QXjtRRyFeXPuHf7fNiS7KzBZNJeGweJhMbFB647171y66id": {
-      "address": "87XWTP9tBECHXCwbyMK1KENoy4GeXkRviNzmhNc5Pvo5ExZ1QXjtRRyFeXPuHf7fNiS7KzBZNJeGweJhMbFB647171y66id",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-c847e29453027c57ceee0184ae2a0bfd524bfc4a",
-          "ref": "ofac-c847e29453027c57ceee0184ae2a0bfd524bfc4a"
-        }
-      ]
-    },
-    "DHzAVdEoL3PjGeLWNdEJwwMA1CeQ9J9Cpo": {
-      "address": "DHzAVdEoL3PjGeLWNdEJwwMA1CeQ9J9Cpo",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-ca28a75c569f0522e42f9c7b00ad83cc45221aa2",
-          "ref": "ofac-ca28a75c569f0522e42f9c7b00ad83cc45221aa2"
         }
       ]
     },
@@ -13776,58 +12683,6 @@
           "authority": "UK Foreign, Commonwealth & Development Office (OFSI)",
           "url": "https://www.opensanctions.org/entities/gb-fcdo-be9f873b0d3fd6905ee91d228293ca39e4ed4cb0",
           "ref": "gb-fcdo-be9f873b0d3fd6905ee91d228293ca39e4ed4cb0"
-        }
-      ]
-    },
-    "qq3vlashthktqpeppuv7trmw070e3mydgq63zq348v": {
-      "address": "qq3vlashthktqpeppuv7trmw070e3mydgq63zq348v",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-cc9a31bd030fb845037a5e0843102ba3e9c9c36d",
-          "ref": "ofac-cc9a31bd030fb845037a5e0843102ba3e9c9c36d"
-        }
-      ]
-    },
-    "LgwmgYnraU2uBWHVFUDgAmFCPYj5Yw8C9L": {
-      "address": "LgwmgYnraU2uBWHVFUDgAmFCPYj5Yw8C9L",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-d1ccf63ae10f36fb7061c1a7f549d9acbfdc5798",
-          "ref": "ofac-d1ccf63ae10f36fb7061c1a7f549d9acbfdc5798"
         }
       ]
     },
@@ -13909,32 +12764,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-d9dd13a99de55537bf4269f9662d0450c5e47017",
           "ref": "ofac-d9dd13a99de55537bf4269f9662d0450c5e47017"
-        }
-      ]
-    },
-    "t1LHesgnkapziGQCJtrfZWYXhyjfTVo1dvh": {
-      "address": "t1LHesgnkapziGQCJtrfZWYXhyjfTVo1dvh",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-dacb7339edb5a16770abef985100f33d15a1e4a1",
-          "ref": "ofac-dacb7339edb5a16770abef985100f33d15a1e4a1"
         }
       ]
     },
@@ -14046,84 +12875,6 @@
         }
       ]
     },
-    "qpusmp64rajses77x95g9ah825mtyyv74smwwkxhx3": {
-      "address": "qpusmp64rajses77x95g9ah825mtyyv74smwwkxhx3",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-e3b8fea574aa84ea2c1adb7605a8226ff45b26b6",
-          "ref": "ofac-e3b8fea574aa84ea2c1adb7605a8226ff45b26b6"
-        }
-      ]
-    },
-    "M8yFL6SFC6TreATegTyuSYkDfDRbisdpT3": {
-      "address": "M8yFL6SFC6TreATegTyuSYkDfDRbisdpT3",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-e4214761752b14edb705dc0248ce0c0c7245015f",
-          "ref": "ofac-e4214761752b14edb705dc0248ce0c0c7245015f"
-        }
-      ]
-    },
-    "FuCC7GoYwt5TsNTjWL23Xx9UKCvC18chjMEFPL3vJDCC": {
-      "address": "FuCC7GoYwt5TsNTjWL23Xx9UKCvC18chjMEFPL3vJDCC",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-e5f648cc6cd935d3bfd1b67d841430196631467b",
-          "ref": "ofac-e5f648cc6cd935d3bfd1b67d841430196631467b"
-        }
-      ]
-    },
     "TLNRT524dzL5FF1nJHDhYEMFpeWjLjRbz1": {
       "address": "TLNRT524dzL5FF1nJHDhYEMFpeWjLjRbz1",
       "chain": "TRON",
@@ -14148,32 +12899,6 @@
           "authority": "US Department of the Treasury (OFAC)",
           "url": "https://www.opensanctions.org/entities/ofac-e94b23a64932210bd41744cef3fa0489455a4ef5",
           "ref": "ofac-e94b23a64932210bd41744cef3fa0489455a4ef5"
-        }
-      ]
-    },
-    "DFFJhnQNZf8rf67tYnesPu7MuGUpYtzv7Z": {
-      "address": "DFFJhnQNZf8rf67tYnesPu7MuGUpYtzv7Z",
-      "chain": "OTHER",
-      "entity": "OFAC Specially Designated National",
-      "providers": [
-        "US-OFAC",
-        "OPENSANCTIONS"
-      ],
-      "jurisdictions": [
-        "US"
-      ],
-      "programs": [
-        "US-OFAC"
-      ],
-      "fatfNexus": null,
-      "threatType": "SANCTIONS_DESIGNATION",
-      "threatLevel": "CRITICAL",
-      "riskScore": 100,
-      "citations": [
-        {
-          "authority": "US Department of the Treasury (OFAC)",
-          "url": "https://www.opensanctions.org/entities/ofac-ebaf9c72ed23c0947d2d239fa9b4929f0b18eb72",
-          "ref": "ofac-ebaf9c72ed23c0947d2d239fa9b4929f0b18eb72"
         }
       ]
     },

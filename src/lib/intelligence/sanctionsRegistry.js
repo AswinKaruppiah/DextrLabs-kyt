@@ -8,22 +8,26 @@ const CACHE_FILE = path.join(DATA_DIR, "sanctions-cache.json");
 
 // In-memory cache
 let cachedData = null;
+let lastMtime = 0;
 
 export function loadSanctionsCache() {
-  if (cachedData) {
-    return cachedData;
-  }
-
   try {
     if (fs.existsSync(CACHE_FILE)) {
+      const stat = fs.statSync(CACHE_FILE);
+      if (cachedData && stat.mtimeMs === lastMtime) {
+        return cachedData;
+      }
       const raw = fs.readFileSync(CACHE_FILE, "utf8");
       cachedData = JSON.parse(raw);
+      lastMtime = stat.mtimeMs;
       return cachedData;
     }
   } catch (err) {
     console.error("[SanctionsRegistry] Error reading cache file:", err);
   }
 
+  cachedData = null;
+  lastMtime = 0;
   return {
     lastSync: null,
     totalCount: 0,

@@ -56,15 +56,18 @@ export async function downloadAndAggregateSanctions() {
   function upsertEntry(addr, data) {
     if (!addr || addr.length < 20) return;
     const cleanAddr = addr.trim();
-    if (cleanAddr.includes(" ") || cleanAddr.includes('"')) return;
+    // Use detectChainFromFormat to validate and classify the address
+    const chain =
+      data.chain && data.chain !== "UNKNOWN" && data.chain !== "OTHER"
+        ? data.chain
+        : detectChainFromFormat(cleanAddr);
 
-    const norm = normalizeAddressKey(cleanAddr);
-    const chain = data.chain || detectChainFromFormat(cleanAddr);
-
-    // Skip Bitcoin addresses completely (focused on USDT across TRON, ETH, BSC)
-    if (chain === "BITCOIN" || /^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,59}$/.test(cleanAddr)) {
+    // Strictly accept supported USDT networks (TRON, ETHEREUM, BSC); automatically rejects BITCOIN, OTHER, and UNKNOWN
+    if (chain !== "TRON" && chain !== "ETHEREUM" && chain !== "BSC") {
       return;
     }
+
+    const norm = normalizeAddressKey(cleanAddr);
 
     const incomingProviders = Array.isArray(data.providers)
       ? data.providers
@@ -98,15 +101,7 @@ export async function downloadAndAggregateSanctions() {
       if (data.citation && !existing.citations.some((c) => c.authority === data.citation.authority)) {
         existing.citations.push(data.citation);
       }
-      if (
-        data.entity &&
-        data.entity !== "Sanctioned Entity" &&
-        data.entity !== "Sanctioned Crypto Wallet" &&
-        data.entity !== "Cryptocurrency wallet" &&
-        (existing.entity === "Sanctioned Entity" ||
-          existing.entity === "Sanctioned Crypto Wallet" ||
-          existing.entity === "Cryptocurrency wallet")
-      ) {
+      if (existing.entity === "Sanctioned Crypto Wallet" && data.entity) {
         existing.entity = data.entity;
       }
       if (data.fatfNexus && !existing.fatfNexus) {
@@ -249,18 +244,13 @@ export async function downloadAndAggregateSanctions() {
 
         const candidateAddrs = [parts[2], parts[7], parts[3]].filter(Boolean);
         let validAddr = null;
-        let chain = "OTHER";
+        let chain = null;
 
         for (const cand of candidateAddrs) {
-          const clean = cand.trim();
-          if (/^T[1-9A-HJ-NP-za-km-z]{33}$/.test(clean)) {
-            validAddr = clean;
-            chain = "TRON";
-            break;
-          }
-          if (/^0x[a-fA-F0-9]{40}$/.test(clean)) {
-            validAddr = clean;
-            chain = "ETHEREUM";
+          const detectedChain = detectChainFromFormat(cand);
+          if (detectedChain === "TRON" || detectedChain === "ETHEREUM") {
+            validAddr = cand.trim();
+            chain = detectedChain;
             break;
           }
         }
