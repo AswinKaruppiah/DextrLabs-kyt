@@ -36,20 +36,27 @@ export async function POST(request) {
       }
     }
 
-    // Validate inputs
+    // Clean input strings
+    from = from ? from.trim() : "";
+    to = to ? to.trim() : "";
+
+    // Support single wallet screening: if one side is missing, use default clean recipient
+    if (!from && body.address) {
+      from = body.address.trim();
+    }
+    if (from && !to) {
+      to = DEFAULT_CLEAN_RECIPIENTS[effectiveChain] || DEFAULT_CLEAN_RECIPIENTS.TRON;
+    } else if (to && !from) {
+      from = DEFAULT_CLEAN_RECIPIENTS[effectiveChain] || DEFAULT_CLEAN_RECIPIENTS.TRON;
+    }
+
     if (!from || !to) {
-      // Single address screening fallback
-      if (body.address && isValidAddressForChain(effectiveChain, body.address)) {
-        from = body.address;
-        to = DEFAULT_CLEAN_RECIPIENTS[effectiveChain] || DEFAULT_CLEAN_RECIPIENTS.TRON;
-      } else {
-        return NextResponse.json(
-          {
-            error: `Valid ${effectiveChain} sender (from) and recipient (to) addresses or a valid address are required.`,
-          },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json(
+        {
+          error: `Valid ${effectiveChain} wallet address is required for screening.`,
+        },
+        { status: 400 }
+      );
     }
 
     // Validate address formats for the selected chain

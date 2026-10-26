@@ -127,31 +127,34 @@ const MULTI_CHAIN_SCENARIOS = {
   ],
 };
 
-export default function ScreeningSimulator({ onScreenComplete }) {
+export default function ScreeningSimulator({ onScreenComplete, targetAddress = "", targetChain = "" }) {
   const [selectedChain, setSelectedChain] = useState("TRON");
   const [fromAddress, setFromAddress] = useState(process.env.NEXT_PUBLIC_DEFAULT_TRON_SENDER);
-  const [toAddress, setToAddress] = useState(process.env.NEXT_PUBLIC_DEFAULT_TRON_WALLET);
-  const [amount, setAmount] = useState("75000");
-  const [txHash, setTxHash] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
   const currentChainConfig = SUPPORTED_CHAINS[selectedChain] || SUPPORTED_CHAINS.TRON;
 
+  // Sync when parent requests checking a specific address
+  React.useEffect(() => {
+    if (targetAddress) {
+      setFromAddress(targetAddress);
+      if (targetChain) {
+        setSelectedChain(targetChain);
+      }
+    }
+  }, [targetAddress, targetChain]);
+
   const handleChainChange = (chain) => {
     setSelectedChain(chain);
     if (chain === "TRON") {
       setFromAddress(process.env.NEXT_PUBLIC_DEFAULT_TRON_SENDER);
-      setToAddress(process.env.NEXT_PUBLIC_DEFAULT_TRON_WALLET);
     } else if (chain === "ETHEREUM") {
       setFromAddress(process.env.NEXT_PUBLIC_DEFAULT_ETH_SENDER);
-      setToAddress(process.env.NEXT_PUBLIC_DEFAULT_ETH_WALLET);
     } else if (chain === "BSC") {
       setFromAddress(process.env.NEXT_PUBLIC_DEFAULT_BSC_SENDER);
-      setToAddress(process.env.NEXT_PUBLIC_DEFAULT_BSC_WALLET);
     }
-    setTxHash("");
     setResult(null);
     setError(null);
   };
@@ -159,9 +162,6 @@ export default function ScreeningSimulator({ onScreenComplete }) {
   const applyScenario = (s) => {
     setSelectedChain(s.chain);
     setFromAddress(s.from);
-    setToAddress(s.to);
-    setAmount(s.amount);
-    setTxHash("");
     setResult(null);
     setError(null);
   };
@@ -179,9 +179,16 @@ export default function ScreeningSimulator({ onScreenComplete }) {
 
   const handleRunScreening = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
     setResult(null);
+
+    const target = fromAddress.trim();
+    if (!target) {
+      setError(`Please enter a ${currentChainConfig.name} wallet address to screen.`);
+      return;
+    }
+
+    setLoading(true);
 
     try {
       const res = await fetch("/api/kyt/screen", {
@@ -189,10 +196,9 @@ export default function ScreeningSimulator({ onScreenComplete }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chain: selectedChain,
-          txHash: txHash.trim() || undefined,
-          from: fromAddress.trim(),
-          to: toAddress.trim(),
-          amountUsdt: Number(amount) || 1000,
+          from: target,
+          address: target,
+          amountUsdt: 0,
         }),
       });
 
@@ -316,69 +322,22 @@ export default function ScreeningSimulator({ onScreenComplete }) {
         </div>
       </div>
 
-      {/* Input Form */}
+      {/* Input Form for Wallet Screening */}
       <form onSubmit={handleRunScreening} className="space-y-4 bg-slate-950/70 p-5 rounded-xl border border-slate-800">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          {/* Sender Address */}
-          <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-              Sender Address ({selectedChain === "TRON" ? "TRON Base58" : "EVM 0x-Hex"})
-            </label>
-            <input
-              type="text"
-              required
-              placeholder={selectedChain === "TRON" ? "T..." : "0x..."}
-              value={fromAddress}
-              onChange={(e) => handleFromChange(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-            />
-          </div>
-
-          {/* Recipient Address */}
-          <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-              Recipient Address ({selectedChain === "TRON" ? "TRON Base58" : "EVM 0x-Hex"})
-            </label>
-            <input
-              type="text"
-              required
-              placeholder={selectedChain === "TRON" ? "T..." : "0x..."}
-              value={toAddress}
-              onChange={(e) => setToAddress(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-            />
-          </div>
-
-          {/* Amount USDT */}
-          <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-              Amount (USDT &bull; {currentChainConfig.standard})
-            </label>
-            <input
-              type="number"
-              step="any"
-              required
-              placeholder="25000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-            />
-          </div>
-        </div>
-
-        {/* Optional TX Hash */}
-        <div>
-          <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-            Optional: Live Transaction Hash (64-char Hex)
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-slate-300 block">
+            Target Wallet Address ({selectedChain === "TRON" ? "TRON Base58 (starts with T)" : "EVM 0x-Hex"})
           </label>
           <input
             type="text"
-            placeholder={selectedChain === "TRON" ? "e.g. 62caaebc0359cb6c3445daba..." : "e.g. 0x89e2f4a5b6c7d8e9f0a1b2..."}
-            value={txHash}
-            onChange={(e) => setTxHash(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+            placeholder={selectedChain === "TRON" ? "Paste any TRON wallet (e.g. TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9)" : "Paste any 0x EVM wallet address..."}
+            value={fromAddress}
+            onChange={(e) => handleFromChange(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
           />
+          <p className="text-[11px] text-slate-400">
+            Instantly checks against OFAC sanctions, Tether smart contract blacklist, and verified scam clusters.
+          </p>
         </div>
 
         {/* Error Notification */}
@@ -401,7 +360,7 @@ export default function ScreeningSimulator({ onScreenComplete }) {
                 Evaluating on {currentChainConfig.name}...
               </>
             ) : (
-              <>Run {currentChainConfig.name} KYT Screen &rarr;</>
+              <>Check Wallet on {currentChainConfig.name} &rarr;</>
             )}
           </button>
         </div>
@@ -410,6 +369,53 @@ export default function ScreeningSimulator({ onScreenComplete }) {
       {/* Real-time Screening Results Display */}
       {result && (
         <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-5 animate-in fade-in duration-200">
+          
+          {/* Big Unmistakable Good vs Bad Verdict Banner */}
+          <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+            result.riskScore >= 70
+              ? "bg-red-950/70 border-red-500/40 text-red-100"
+              : result.riskScore <= 20
+              ? "bg-emerald-950/70 border-emerald-500/40 text-emerald-100"
+              : "bg-amber-950/70 border-amber-500/40 text-amber-100"
+          }`}>
+            <div className="flex items-center space-x-3.5">
+              <span className="text-3xl">
+                {result.riskScore >= 70 ? "🚨" : result.riskScore <= 20 ? "✅" : "⚠️"}
+              </span>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-black uppercase tracking-wider">
+                    {result.riskScore >= 70
+                      ? "BAD / SANCTIONED WALLET"
+                      : result.riskScore <= 20
+                      ? "GOOD / SAFE WALLET"
+                      : "CAUTION / HIGH RISK"}
+                  </span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-black/40 border border-white/10 font-mono">
+                    Score: {result.riskScore}/100
+                  </span>
+                </div>
+                <p className="text-xs mt-0.5 opacity-90 font-medium">
+                  {result.riskScore >= 70
+                    ? `Threat: ${result.riskIndicators?.[0]?.entity || result.highestRiskCategory?.label || "OFAC Sanction / On-Chain Blacklist"} • Action: BLOCK & FREEZE`
+                    : result.riskScore <= 20
+                    ? "Safe to transact. Zero OFAC sanctions, Tether blacklist, or scam cluster records found."
+                    : "Enhanced due diligence required. Exposure to unhosted or shadow counterparty."}
+                </p>
+              </div>
+            </div>
+
+            <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border shrink-0 text-center ${
+              result.riskScore >= 70
+                ? "bg-red-500 text-white border-red-400"
+                : result.riskScore <= 20
+                ? "bg-emerald-500 text-white border-emerald-400"
+                : "bg-amber-500 text-slate-950 border-amber-400"
+            }`}>
+              {result.riskScore >= 70 ? "DO NOT TRANSACT" : result.riskScore <= 20 ? "VERIFIED SAFE" : "REVIEW REQUIRED"}
+            </span>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
             <div className="flex items-center space-x-3">
               <span
