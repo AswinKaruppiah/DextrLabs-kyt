@@ -1,8 +1,13 @@
 import fs from "fs";
 import path from "path";
+import readline from "readline";
+import { Readable } from "node:stream";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CACHE_FILE = path.join(DATA_DIR, "sanctions-cache.json");
+
+export const OPENSANCTIONS_BULK_URL =
+  "https://data.opensanctions.org/datasets/latest/sanctions/targets.simple.csv";
 
 // Helper to determine chain from address format
 export function detectChainFromFormat(address) {
@@ -23,7 +28,7 @@ export function normalizeAddressKey(address) {
   return trimmed;
 }
 
-async function fetchWithTimeout(url, timeoutMs = 20000) {
+async function fetchWithTimeout(url, timeoutMs = 25000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -42,8 +47,8 @@ async function fetchWithTimeout(url, timeoutMs = 20000) {
 }
 
 /**
- * Downloads, parses, and aggregates all public sanctions lists.
- * Saves results to data/sanctions-cache.json.
+ * Downloads, parses, and aggregates all public sanctions lists directly from official remote URLs.
+ * Saves aggregated results to data/sanctions-cache.json.
  */
 export async function downloadAndAggregateSanctions() {
   const database = new Map();
@@ -56,23 +61,51 @@ export async function downloadAndAggregateSanctions() {
     const norm = normalizeAddressKey(cleanAddr);
     const chain = data.chain || detectChainFromFormat(cleanAddr);
 
+    // Skip Bitcoin addresses completely (focused on USDT across TRON, ETH, BSC)
+    if (chain === "BITCOIN" || /^(1|3|bc1)[a-zA-HJ-NP-Z0-9]{25,59}$/.test(cleanAddr)) {
+      return;
+    }
+
+    const incomingProviders = Array.isArray(data.providers)
+      ? data.providers
+      : data.provider
+      ? [data.provider]
+      : [];
+
+    const incomingJurisdictions = Array.isArray(data.jurisdictions)
+      ? data.jurisdictions
+      : data.jurisdiction
+      ? [data.jurisdiction]
+      : [];
+
+    const incomingPrograms = Array.isArray(data.programs)
+      ? data.programs
+      : data.program
+      ? [data.program]
+      : [];
+
     if (database.has(norm)) {
       const existing = database.get(norm);
-      if (data.provider && !existing.providers.includes(data.provider)) {
-        existing.providers.push(data.provider);
+      for (const p of incomingProviders) {
+        if (!existing.providers.includes(p)) existing.providers.push(p);
       }
-      if (data.jurisdiction && !existing.jurisdictions.includes(data.jurisdiction)) {
-        existing.jurisdictions.push(data.jurisdiction);
+      for (const j of incomingJurisdictions) {
+        if (!existing.jurisdictions.includes(j)) existing.jurisdictions.push(j);
       }
-      if (data.program && !existing.programs.includes(data.program)) {
-        existing.programs.push(data.program);
+      for (const prog of incomingPrograms) {
+        if (!existing.programs.includes(prog)) existing.programs.push(prog);
       }
       if (data.citation && !existing.citations.some((c) => c.authority === data.citation.authority)) {
         existing.citations.push(data.citation);
       }
       if (
         data.entity &&
-        (existing.entity === "Sanctioned Entity" || existing.entity === "Sanctioned Crypto Wallet")
+        data.entity !== "Sanctioned Entity" &&
+        data.entity !== "Sanctioned Crypto Wallet" &&
+        data.entity !== "Cryptocurrency wallet" &&
+        (existing.entity === "Sanctioned Entity" ||
+          existing.entity === "Sanctioned Crypto Wallet" ||
+          existing.entity === "Cryptocurrency wallet")
       ) {
         existing.entity = data.entity;
       }
@@ -84,9 +117,9 @@ export async function downloadAndAggregateSanctions() {
         address: cleanAddr,
         chain,
         entity: data.entity || "Sanctioned Crypto Wallet",
-        providers: data.provider ? [data.provider] : [],
-        jurisdictions: data.jurisdiction ? [data.jurisdiction] : [],
-        programs: data.program ? [data.program] : [],
+        providers: [...incomingProviders],
+        jurisdictions: [...incomingJurisdictions],
+        programs: [...incomingPrograms],
         fatfNexus: data.fatfNexus || null,
         threatType: data.threatType || "SANCTIONS_DESIGNATION",
         threatLevel: "CRITICAL",
@@ -96,12 +129,11 @@ export async function downloadAndAggregateSanctions() {
     }
   }
 
-  // 1. Fetch 0xB10C OFAC Curated Lists
+  // 1. Fetch 0xB10C OFAC Curated Lists (TRON, ETH, BSC)
   const ofacChains = [
     { chain: "TRON", url: "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_TRX.json" },
     { chain: "ETHEREUM", url: "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_ETH.json" },
     { chain: "BSC", url: "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_BSC.json" },
-    { chain: "BITCOIN", url: "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.json" },
   ];
 
   for (const item of ofacChains) {
@@ -127,149 +159,208 @@ export async function downloadAndAggregateSanctions() {
     }
   }
 
-  // 2. Fetch Safe-Research Multi-Jurisdiction Lists (UK, EU, UN, CH, US)
-  const safeFeeds = [
-    { code: "UK-OFSI", jur: "UK", url: "https://github.com/safe-research/sanctions-address-lists/releases/latest/download/uk.csv", auth: "UK HM Treasury (OFSI)" },
-    { code: "EU", jur: "EU", url: "https://github.com/safe-research/sanctions-address-lists/releases/latest/download/eu.csv", auth: "European Union (EU FS)" },
-    { code: "UN", jur: "UN", url: "https://github.com/safe-research/sanctions-address-lists/releases/latest/download/un.csv", auth: "United Nations Security Council" },
-    { code: "SWISS-SECO", jur: "CH", url: "https://github.com/safe-research/sanctions-address-lists/releases/latest/download/ch-seco.csv", auth: "Swiss SECO" },
-    { code: "US-OFAC", jur: "US", url: "https://github.com/safe-research/sanctions-address-lists/releases/latest/download/us-ofac.csv", auth: "US Department of the Treasury" },
+  // 2. Fetch Direct Dedicated OpenSanctions Feeds
+  const dedicatedOpenSanctions = [
+    {
+      code: "US-OFAC",
+      jur: "US",
+      url: "https://data.opensanctions.org/datasets/latest/us_ofac_sdn/targets.simple.csv",
+      auth: "US Department of the Treasury (OFAC)",
+      defaultEntity: "OFAC Specially Designated National",
+    },
+    {
+      code: "IL-NBCTF",
+      jur: "IL",
+      url: "https://data.opensanctions.org/datasets/latest/il_mod_crypto/targets.simple.csv",
+      auth: "Israel National Bureau for Counter Terror Financing (NBCTF)",
+      defaultEntity: "NBCTF Terror Finance Target",
+    },
+    {
+      code: "UK-OFSI",
+      jur: "UK",
+      url: "https://data.opensanctions.org/datasets/latest/gb_fcdo_sanctions/targets.simple.csv",
+      auth: "UK Foreign, Commonwealth & Development Office (OFSI)",
+      defaultEntity: "UK OFSI Sanctioned Entity",
+    },
+    {
+      code: "JAPAN-MOFA",
+      jur: "JP",
+      url: "https://data.opensanctions.org/datasets/latest/jp_mof_sanctions/targets.simple.csv",
+      auth: "Ministry of Finance Japan (MOFA)",
+      defaultEntity: "Japan MOFA Sanctioned Entity",
+    },
+    {
+      code: "FBI-CYBER",
+      jur: "US",
+      url: "https://data.opensanctions.org/datasets/latest/us_fbi_lazarus_crypto/targets.simple.csv",
+      auth: "Federal Bureau of Investigation (FBI)",
+      defaultEntity: "Lazarus Group (DPRK Cyber Crime)",
+      fatf: "FATF-BLACKLIST",
+    },
   ];
 
-  for (const feed of safeFeeds) {
+  for (const feed of dedicatedOpenSanctions) {
     try {
       const text = await fetchWithTimeout(feed.url);
-      const lines = text.trim().split("\n").slice(1);
-      for (const line of lines) {
-        const [address, , source, record_id, source_url] = line.split(",");
-        if (address) {
-          upsertEntry(address, {
-            provider: feed.code,
-            jurisdiction: feed.jur,
-            program: source || feed.code,
-            citation: {
-              authority: feed.auth,
-              url: source_url || feed.url,
-              ref: record_id || feed.code,
-            },
-          });
-        }
+      const lines = text.split("\n");
+      for (let i = 1; i < lines.length; i++) {
+        const l = lines[i];
+        if (!l.includes("CryptoWallet")) continue;
+        const parts = l.split('","').map((s) => s.replace(/^"|"$/g, ""));
+        if (parts.length < 13) continue;
+        const addr = parts[2] || parts[7];
+        if (!addr) continue;
+
+        upsertEntry(addr, {
+          providers: [feed.code, "OPENSANCTIONS"],
+          jurisdiction: feed.jur,
+          entity: parts[3] || feed.defaultEntity,
+          program: parts[11] || feed.code,
+          fatfNexus: feed.fatf || null,
+          citation: {
+            authority: feed.auth,
+            url: "https://www.opensanctions.org/entities/" + parts[0],
+            ref: parts[0],
+          },
+        });
       }
     } catch (err) {
       console.warn(`[SanctionsSync] Failed fetching ${feed.code}:`, err.message);
     }
   }
 
-  // 3. Fetch OpenSanctions Consolidated Sanctions
+  // 3. Stream Bulk OpenSanctions Sanctions Feed (Live Remote Fetch Only)
   try {
-    const text = await fetchWithTimeout("https://data.opensanctions.org/datasets/latest/sanctions/targets.simple.csv");
-    const lines = text.split("\n");
-    for (let i = 1; i < lines.length; i++) {
-      const l = lines[i];
-      if (!l.includes("CryptoWallet")) continue;
-      const parts = l.split('","').map((s) => s.replace(/^"|"$/g, ""));
-      if (parts.length < 13) continue;
+    console.log(`[SanctionsSync] Streaming bulk OpenSanctions feed from ${OPENSANCTIONS_BULK_URL}...`);
+    const res = await fetch(OPENSANCTIONS_BULK_URL, {
+      headers: { "User-Agent": "DextrLabs-KYT-Sync/1.0" },
+    });
 
-      let addr = parts[2];
-      if (!addr || addr.toLowerCase().includes("wallet")) {
-        addr = parts[7];
-      }
-      if (!addr) continue;
-
-      const ds = parts[12];
-      let provider = "INTERNATIONAL-SANCTIONS";
-      let jur = "INTERNATIONAL";
-      let auth = ds;
-      let fatfNexus = null;
-
-      if (ds.includes("OFAC") || ds.includes("US")) {
-        provider = "US-OFAC";
-        jur = "US";
-        auth = "US Department of the Treasury (OFAC)";
-      } else if (ds.includes("UK") || ds.includes("FCDO") || ds.includes("HMT")) {
-        provider = "UK-OFSI";
-        jur = "UK";
-        auth = "UK Foreign, Commonwealth & Development Office (OFSI)";
-      } else if (ds.includes("Japan")) {
-        provider = "JAPAN-MOFA";
-        jur = "JP";
-        auth = "Ministry of Finance Japan (MOFA)";
-      } else if (ds.includes("Israel")) {
-        provider = "IL-NBCTF";
-        jur = "IL";
-        auth = "Israel National Bureau for Counter Terror Financing (NBCTF)";
-      } else if (ds.includes("European") || ds.includes("EU")) {
-        provider = "EU";
-        jur = "EU";
-        auth = "European Union (EEAS)";
-      } else if (ds.includes("United Nations") || ds.includes("UN")) {
-        provider = "UN";
-        jur = "UN";
-        auth = "United Nations Security Council (UNSC)";
-      } else if (ds.includes("Canada") || ds.includes("SEMA")) {
-        provider = "CANADA-SEMA";
-        jur = "CA";
-        auth = "Global Affairs Canada (SEMA)";
-      } else if (ds.includes("Australia") || ds.includes("DFAT")) {
-        provider = "AU-DFAT";
-        jur = "AU";
-        auth = "Australian Department of Foreign Affairs and Trade (DFAT)";
-      }
-
-      if (
-        parts[11] &&
-        (parts[11].includes("DPRK") ||
-          parts[11].includes("North Korea") ||
-          parts[11].includes("IRAN") ||
-          parts[11].includes("MYANMAR"))
-      ) {
-        fatfNexus = "FATF-BLACKLIST";
-      }
-
-      upsertEntry(addr, {
-        provider,
-        jurisdiction: jur,
-        entity: parts[3] || parts[2] || "Sanctioned Crypto Asset",
-        program: parts[11] || ds,
-        fatfNexus,
-        citation: {
-          authority: auth,
-          url: "https://www.opensanctions.org/entities/" + parts[0],
-          ref: parts[0],
-        },
+    if (res.ok && res.body) {
+      const rl = readline.createInterface({
+        input: Readable.fromWeb(res.body),
+        crlfDelay: Infinity,
       });
+
+      for await (const line of rl) {
+        if (!line || !line.includes('"CryptoWallet"')) continue;
+        const parts = line.split('","').map((s) => s.replace(/^"|"$/g, ""));
+        if (parts.length < 13) continue;
+
+        const candidateAddrs = [parts[2], parts[7], parts[3]].filter(Boolean);
+        let validAddr = null;
+        let chain = "OTHER";
+
+        for (const cand of candidateAddrs) {
+          const clean = cand.trim();
+          if (/^T[1-9A-HJ-NP-za-km-z]{33}$/.test(clean)) {
+            validAddr = clean;
+            chain = "TRON";
+            break;
+          }
+          if (/^0x[a-fA-F0-9]{40}$/.test(clean)) {
+            validAddr = clean;
+            chain = "ETHEREUM";
+            break;
+          }
+        }
+
+        if (!validAddr) continue;
+
+        const datasetName = (parts[12] || "").toLowerCase();
+        let provider = "OPENSANCTIONS";
+        let jurisdiction = "GLOBAL";
+        let authority = parts[12] || "OpenSanctions";
+        let program = parts[11] || "International Sanctions";
+        let defaultEntity = "Sanctioned Entity";
+        let fatfNexus = null;
+
+        if (datasetName.includes("ofac") || datasetName.includes("sdn")) {
+          provider = "US-OFAC";
+          jurisdiction = "US";
+          authority = "US Department of the Treasury (OFAC)";
+          program = "OFAC SDN";
+          defaultEntity = "OFAC Specially Designated National";
+        } else if (datasetName.includes("israel") || datasetName.includes("nbctf") || datasetName.includes("mod_crypto")) {
+          provider = "IL-NBCTF";
+          jurisdiction = "IL";
+          authority = "Israel National Bureau for Counter Terror Financing (NBCTF)";
+          program = "NBCTF Terror Finance Order";
+          defaultEntity = "NBCTF Terror Finance Target";
+        } else if (datasetName.includes("uk") || datasetName.includes("fcdo") || datasetName.includes("ofsi")) {
+          provider = "UK-OFSI";
+          jurisdiction = "UK";
+          authority = "UK Foreign, Commonwealth & Development Office (OFSI)";
+          program = "UK Sanctions List";
+          defaultEntity = "UK OFSI Sanctioned Entity";
+        } else if (datasetName.includes("japan") || datasetName.includes("mofa") || datasetName.includes("mof")) {
+          provider = "JAPAN-MOFA";
+          jurisdiction = "JP";
+          authority = "Ministry of Finance Japan (MOFA)";
+          program = "Japan FEFTA Asset Freeze";
+          defaultEntity = "Japan MOFA Sanctioned Entity";
+        } else if (datasetName.includes("fbi") || datasetName.includes("lazarus")) {
+          provider = "FBI-CYBER";
+          jurisdiction = "US";
+          authority = "Federal Bureau of Investigation (FBI)";
+          program = "FBI Cyber Alert";
+          defaultEntity = "Lazarus Group (DPRK Cyber Crime)";
+          fatfNexus = "FATF-BLACKLIST";
+        } else if (datasetName.includes("european") || datasetName.includes("eu")) {
+          provider = "EU";
+          jurisdiction = "EU";
+          authority = "European External Action Service (EU)";
+          program = "EU Sanctions";
+          defaultEntity = "EU Sanctioned Entity";
+        } else if (datasetName.includes("united nations") || datasetName.includes("un")) {
+          provider = "UN";
+          jurisdiction = "UN";
+          authority = "United Nations Security Council (UN)";
+          program = "UN Sanctions";
+          defaultEntity = "UN Sanctioned Entity";
+        } else if (datasetName.includes("canada") || datasetName.includes("sema")) {
+          provider = "CANADA-SEMA";
+          jurisdiction = "CA";
+          authority = "Global Affairs Canada (SEMA)";
+          program = "Special Economic Measures Act";
+          defaultEntity = "Canada SEMA Sanctioned Entity";
+        } else if (datasetName.includes("australia") || datasetName.includes("dfat")) {
+          provider = "AU-DFAT";
+          jurisdiction = "AU";
+          authority = "Department of Foreign Affairs and Trade (DFAT)";
+          program = "Autonomous Sanctions Regulations";
+          defaultEntity = "Australia DFAT Sanctioned Entity";
+        }
+
+        let entityTitle = defaultEntity;
+        if (parts[2] && parts[2] !== validAddr && parts[2] !== "Cryptocurrency wallet" && !parts[2].startsWith("T") && !parts[2].startsWith("0x")) {
+          entityTitle = parts[2];
+        } else if (parts[3] && !parts[3].startsWith("T") && !parts[3].startsWith("0x")) {
+          entityTitle = parts[3];
+        }
+
+        const providers = [provider];
+        if (!providers.includes("OPENSANCTIONS")) {
+          providers.push("OPENSANCTIONS");
+        }
+
+        upsertEntry(validAddr, {
+          chain,
+          providers,
+          jurisdiction,
+          program,
+          entity: entityTitle,
+          fatfNexus,
+          citation: {
+            authority,
+            url: "https://www.opensanctions.org/entities/" + parts[0],
+            ref: parts[0],
+          },
+        });
+      }
     }
   } catch (err) {
-    console.warn("[SanctionsSync] Failed fetching OpenSanctions consolidated dataset:", err.message);
-  }
-
-  // 4. Fetch FBI Lazarus Dataset
-  try {
-    const text = await fetchWithTimeout("https://data.opensanctions.org/datasets/latest/us_fbi_lazarus_crypto/targets.simple.csv");
-    const lines = text.split("\n");
-    for (let i = 1; i < lines.length; i++) {
-      const l = lines[i];
-      if (!l.includes("CryptoWallet")) continue;
-      const parts = l.split('","').map((s) => s.replace(/^"|"$/g, ""));
-      if (parts.length < 13) continue;
-      let addr = parts[2] || parts[7];
-      if (!addr) continue;
-
-      upsertEntry(addr, {
-        provider: "FBI-CYBER",
-        jurisdiction: "US",
-        entity: "Lazarus Group (DPRK Cyber Crime)",
-        program: "DPRK Cyber Operations",
-        fatfNexus: "FATF-BLACKLIST",
-        citation: {
-          authority: "Federal Bureau of Investigation (FBI)",
-          url: "https://www.fbi.gov/news/press-releases/fbi-identifies-lazarus-group-cyber-actors-as-responsible-for-theft-of-41-million-from-stakecom",
-          ref: parts[0],
-        },
-      });
-    }
-  } catch (err) {
-    console.warn("[SanctionsSync] Failed fetching FBI Lazarus:", err.message);
+    console.warn("[SanctionsSync] Failed streaming bulk OpenSanctions feed:", err.message);
   }
 
   const result = Array.from(database.values());
@@ -300,37 +391,4 @@ export async function downloadAndAggregateSanctions() {
   fs.writeFileSync(CACHE_FILE, JSON.stringify(payload, null, 2), "utf8");
 
   return payload;
-}
-
-/**
- * Perform a live check against OpenSanctions API if API key is provided
- * @param {string} address 
- * @param {string} apiKey 
- */
-export async function queryOpenSanctionsApi(address, apiKey) {
-  if (!apiKey || !address) return null;
-  try {
-    const url = `https://api.opensanctions.org/search/default?q=${encodeURIComponent(address)}&schema=CryptoWallet`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `ApiKey ${apiKey}`,
-        "User-Agent": "DextrLabs-KYT-LiveCheck/1.0",
-      },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data.results && data.results.length > 0) {
-      const match = data.results[0];
-      return {
-        matched: true,
-        entity: match.caption || "Sanctioned Entity",
-        datasets: match.datasets || [],
-        properties: match.properties || {},
-      };
-    }
-    return null;
-  } catch (err) {
-    console.warn("[OpenSanctions API] Query error:", err.message);
-    return null;
-  }
 }

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { downloadAndAggregateSanctions, normalizeAddressKey, queryOpenSanctionsApi } from "./sanctionsDownloader";
+import { downloadAndAggregateSanctions, normalizeAddressKey } from "./sanctionsDownloader";
 import { TETHER_FROZEN_ADDRESSES, checkTetherBlacklist } from "./tetherBlacklist";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -69,32 +69,6 @@ export async function checkSanctions(address) {
       details: `Designated by: ${(entry.providers || []).join(", ")}${entry.fatfNexus ? " | High-Risk Jurisdictions: " + entry.fatfNexus : ""}`,
       citations: entry.citations || [],
     };
-  }
-
-  // Also check OpenSanctions API if API key configured
-  const apiKey = process.env.OPENSANCTIONS_API_KEY;
-  if (apiKey) {
-    const liveMatch = await queryOpenSanctionsApi(clean, apiKey);
-    if (liveMatch && liveMatch.matched) {
-      return {
-        address: clean,
-        chain: "EVM/TRON",
-        entity: liveMatch.entity,
-        providers: ["OPENSANCTIONS_LIVE", ...liveMatch.datasets],
-        jurisdictions: ["INTERNATIONAL"],
-        programs: [],
-        fatfNexus: null,
-        threatType: "SANCTIONS_DESIGNATION",
-        threatLevel: "CRITICAL",
-        riskWeight: 100,
-        confidence: "VERIFIED_LIVE_API",
-        authority: "OpenSanctions API",
-        noticeId: liveMatch.datasets?.join(", ") || "API Match",
-        legalCitation: "https://www.opensanctions.org",
-        details: `Identified by OpenSanctions API in datasets: ${(liveMatch.datasets || []).join(", ")}`,
-        citations: [{ authority: "OpenSanctions", url: `https://api.opensanctions.org/search/default?q=${clean}` }],
-      };
-    }
   }
 
   return null;

@@ -98,6 +98,8 @@ export default function SanctionedWalletsDirectory() {
         return "bg-orange-500/10 text-orange-400 border-orange-500/30";
       case "FBI-CYBER":
         return "bg-red-500/10 text-red-400 border-red-500/30";
+      case "OPENSANCTIONS":
+        return "bg-teal-500/10 text-teal-400 border-teal-500/30";
       case "TETHER ON-CHAIN":
         return "bg-teal-500/10 text-teal-400 border-teal-500/30";
       default:
@@ -203,7 +205,7 @@ export default function SanctionedWalletsDirectory() {
             <span className="text-[11px] font-semibold text-slate-400 px-2 uppercase tracking-wider">
               Chain:
             </span>
-            {["ALL", "TRON", "ETHEREUM", "BSC", "BITCOIN"].map((c) => (
+            {["ALL", "TRON", "ETHEREUM", "BSC"].map((c) => (
               <button
                 key={c}
                 onClick={() => {
@@ -228,11 +230,11 @@ export default function SanctionedWalletsDirectory() {
             </span>
             {[
               { id: "ALL", label: "All" },
+              { id: "OPENSANCTIONS", label: "OpenSanctions" },
               { id: "US-OFAC", label: "US OFAC" },
-              { id: "UK-OFSI", label: "UK OFSI" },
-              { id: "EU", label: "EU" },
-              { id: "JAPAN-MOFA", label: "Japan MOFA" },
               { id: "IL-NBCTF", label: "Israel NBCTF" },
+              { id: "JAPAN-MOFA", label: "Japan MOFA" },
+              { id: "UK-OFSI", label: "UK OFSI" },
               { id: "FBI-CYBER", label: "FBI Cyber" },
             ].map((p) => (
               <button

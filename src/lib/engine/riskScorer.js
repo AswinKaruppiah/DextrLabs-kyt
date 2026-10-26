@@ -230,6 +230,8 @@ export async function evaluateTransactionRisk({
       category: senderEntity.category,
       isSanctioned: senderEntity.isSanctioned,
       isTetherFrozen: senderEntity.isTetherFrozen,
+      providers: senderEntity.providers || [],
+      jurisdictions: senderEntity.jurisdictions || [],
     },
     recipient: recipientEntity
       ? {
@@ -238,6 +240,8 @@ export async function evaluateTransactionRisk({
           category: recipientEntity.category,
           isSanctioned: recipientEntity.isSanctioned,
           isTetherFrozen: recipientEntity.isTetherFrozen,
+          providers: recipientEntity.providers || [],
+          jurisdictions: recipientEntity.jurisdictions || [],
         }
       : null,
     riskIndicators: riskIndicators,

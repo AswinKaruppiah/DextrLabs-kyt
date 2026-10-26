@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# DextrLabs-KYT: Multi-Chain USDT Sanctions & Compliance Platform
+
+Real-time Know-Your-Transaction (KYT) screening and threat intelligence registry for USDT across **TRON (TRC-20)**, **Ethereum (ERC-20)**, and **BNB Smart Chain (BEP-20)**.
+
+---
+
+## Key Features
+
+* **Multi-Source Real-Time Sanctions Ingestion**: Dynamic synchronization across verified Tier 1 government authorities (US-OFAC, Israel-NBCTF, Japan-MOFA, UK-OFSI, FBI-Cyber).
+* **Multi-Provider Deduplication**: Groups cross-listed addresses into a single entry with individual badges for every designating authority.
+* **On-Chain Smart Contract Freeze Verification**: Direct real-time RPC integration querying Tether's smart contract state (`getBlackListStatus`).
+* **Zero Mock Lists / Zero In-Code Fallbacks**: All records are dynamically ingested and stored in local cache (`data/sanctions-cache.json`).
+* **Interactive Dashboard**:
+  * **Check Wallet**: Instant transaction risk assessment with good/bad verdict and multi-jurisdiction attribution.
+  * **Sanctioned Wallets Directory**: Searchable, paginated directory with live authority and blockchain filters.
+
+---
+
+## Sanctions Architecture & Feeds
+
+For full details on the exact feeds, government sources, and data flow architecture, see **[`SANCTIONS_INTELLIGENCE.md`](SANCTIONS_INTELLIGENCE.md)**.
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### 1. Environment Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Create or verify `.env` in the project root:
+```env
+TRONGRID_HOST=https://api.trongrid.io
+TRONGRID_API_KEY=your_trongrid_api_key
+TRON_USDT_CONTRACT_HEX=41a614f803b6fd780986a42c78ec9c7f77e6ded13c
+NEXT_PUBLIC_USDT_TRON_CONTRACT=TR7NHqJEKQxGTCi8q8ZY4pL8otSzgjLj6t
+NEXT_PUBLIC_USDT_ETH_CONTRACT=0xdAC17F958D2ee523a2206206994597C13D831ec7
+NEXT_PUBLIC_USDT_BSC_CONTRACT=0x55d398326f99059fF775485246999027B3197955
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Run Locally
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Learn More
+### 3. Build & Production
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build
+npm start
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Endpoints
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* `POST /api/kyt/screen` &mdash; Screen a wallet or transaction for sanctions and Tether freezes.
+* `GET /api/kyt/sanctions` &mdash; Query and filter the active local sanctions directory.
+* `POST /api/kyt/sanctions/sync` &mdash; Trigger an on-demand re-sync across all remote regulatory feeds.
