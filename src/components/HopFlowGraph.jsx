@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { truncateAddress, formatUsdt, getTronscanAddressUrl } from "@/lib/tron/tronUtils";
+import { truncateAddress } from "@/lib/tron/tronUtils";
+import { getExplorerAddressUrl } from "@/lib/chains/chainConfig";
 
 export default function HopFlowGraph({ evaluation }) {
   const [activeNode, setActiveNode] = useState(null);
@@ -106,12 +107,12 @@ export default function HopFlowGraph({ evaluation }) {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={getTronscanAddressUrl(activeNode.address)}
+              href={getExplorerAddressUrl(evaluation.chain || "TRON", activeNode.address)}
               target="_blank"
               rel="noopener noreferrer"
               className="px-3 py-1.5 rounded-lg bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-600/30 transition-colors flex items-center gap-1"
             >
-              Tronscan Explorer &rarr;
+              {evaluation.chain || "Blockchain"} Explorer &rarr;
             </a>
             <button
               onClick={() => setActiveNode(null)}

@@ -1,12 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { formatUsdt } from "@/lib/tron/tronUtils";
 import HopFlowGraph from "./HopFlowGraph";
 import {
   SUPPORTED_CHAINS,
-  detectChainFromAddress,
-  getExplorerTxUrl,
   getExplorerAddressUrl,
 } from "@/lib/chains/chainConfig";
 
@@ -17,8 +14,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "TRON",
       description: "North Korea DPRK cyber exploitation cashout address",
       from: "TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9",
-      to: "TNDU9Z68eKx6H5k9bU1wX7Y8Z9kQ4V1m8K",
-      amount: "75000",
       badge: "CRITICAL",
     },
     {
@@ -26,8 +21,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "TRON",
       description: "On-chain frozen by Tether admin in TRC-20 contract (KK Park)",
       from: "TDqP8VvBknWk4C38Gv6HjL8kQ9bU1wX4Q9",
-      to: "TWd4vBknWk4C38Gv6HjL8kQ9bU1wZ9K3P2",
-      amount: "250000",
       badge: "CRITICAL",
     },
     {
@@ -35,8 +28,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "TRON",
       description: "KK Park industrial fraud compound in Southeast Asia",
       from: "TScam8vBknWk4C38Gv6HjL8kQ9bU1wK8P1",
-      to: "TPyjyZvBknWk4C38Gv6HjL8kQ9bU1wZ9K3",
-      amount: "38500",
       badge: "HIGH",
     },
     {
@@ -44,8 +35,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "TRON",
       description: "Regulated exchange inter-hot wallet transfer",
       from: "TKzBDW5kPqSL69c5eC26b4N6W5vT4HkU9k",
-      to: "TWd4vBknWk4C38Gv6HjL8kQ9bU1wZ9K3P2",
-      amount: "12400",
       badge: "LOW",
     },
   ],
@@ -55,8 +44,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "ETHEREUM",
       description: "Core privacy mixer router contract sanctioned under EO 13694",
       from: "0xd90e2f925DA726b50C4Ed8D0Fb90Ad053324F31b",
-      to: "0x28C6c06298d514Db089934071355E5743bf21d60",
-      amount: "120000",
       badge: "CRITICAL",
     },
     {
@@ -64,8 +51,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "ETHEREUM",
       description: "Stolen bridge reserves frozen on-chain via ERC-20 addBlackList()",
       from: "0x1da5821544e25c636c1417ba96ade4cf6d2f9b5a",
-      to: "0xDFd5293D8e347dFe59E90eFd55b2956a1343963d",
-      amount: "500000",
       badge: "CRITICAL",
     },
     {
@@ -73,8 +58,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "ETHEREUM",
       description: "Primary cyber laundering node for $620M Axie Ronin hack",
       from: "0x098B716B8Aaf21512996dC57EB0615e2383E2f96",
-      to: "0x28C6c06298d514Db089934071355E5743bf21d60",
-      amount: "85000",
       badge: "CRITICAL",
     },
     {
@@ -82,8 +65,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "ETHEREUM",
       description: "Institutional ERC-20 USDT transfer between verified VASPs",
       from: "0xDFd5293D8e347dFe59E90eFd55b2956a1343963d",
-      to: "0x6cC5F688a30d3790e980271DE884772113c450ada",
-      amount: "45000",
       badge: "LOW",
     },
   ],
@@ -93,8 +74,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "BSC",
       description: "Web3 Discord approval drainer cashout node frozen on BSC",
       from: "0x3c7885b54687C5f92Aeb9d4a4d658C08A46eF915",
-      to: "0x8894E0a0c962CB723c1976a4421c95949bE2D4E3",
-      amount: "95000",
       badge: "CRITICAL",
     },
     {
@@ -102,8 +81,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "BSC",
       description: "Russian illicit crypto brokerage BEP-20 liquidation portal",
       from: "0x7F367cc41522cE07553e823bf3be79A889DEbe1B",
-      to: "0xF977814e90dA44bFA03b6295A0616a897441aceC",
-      amount: "64500",
       badge: "HIGH",
     },
     {
@@ -111,8 +88,6 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "BSC",
       description: "Large unhosted transfer triggering Enhanced Due Diligence (EDD)",
       from: "0x8894E0a0c962CB723c1976a4421c95949bE2D4E3",
-      to: "0x71C8705a2B88e60825706CE45749280e82f2244E",
-      amount: "180000",
       badge: "MEDIUM",
     },
     {
@@ -120,14 +95,12 @@ const MULTI_CHAIN_SCENARIOS = {
       chain: "BSC",
       description: "Clean decentralized liquidity pool routing on PancakeSwap",
       from: "0xF977814e90dA44bFA03b6295A0616a897441aceC",
-      to: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
-      amount: "35000",
       badge: "LOW",
     },
   ],
 };
 
-export default function ScreeningSimulator({ onScreenComplete, targetAddress = "", targetChain = "" }) {
+export default function ScreeningSimulator({ targetAddress = "", targetChain = "" }) {
   const [selectedChain, setSelectedChain] = useState("TRON");
   const [fromAddress, setFromAddress] = useState(process.env.NEXT_PUBLIC_DEFAULT_TRON_SENDER);
   const [loading, setLoading] = useState(false);
@@ -208,9 +181,6 @@ export default function ScreeningSimulator({ onScreenComplete, targetAddress = "
       }
 
       setResult(data);
-      if (onScreenComplete) {
-        onScreenComplete(data);
-      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -434,16 +404,17 @@ export default function ScreeningSimulator({ onScreenComplete, targetAddress = "
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono font-bold text-white bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-                {formatUsdt(result.amountUsdt)}
+              <span className="text-xs font-mono font-semibold text-slate-300 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+                Wallet Screening
               </span>
               <a
-                href={result.explorerTxUrl}
+                href={result.explorerSenderUrl || result.explorerTxUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs font-mono text-cyan-400 hover:underline px-2 py-1 bg-slate-900 rounded border border-slate-800"
+                className="text-xs font-mono text-cyan-400 hover:underline px-2.5 py-1.5 bg-slate-900 rounded-lg border border-slate-800 flex items-center gap-1"
               >
-                Explorer &#x2197;
+                <span>Explorer</span>
+                <span>&#x2197;</span>
               </a>
             </div>
           </div>

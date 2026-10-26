@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { isValidTronAddress, isValidTronTxHash } from "@/lib/tron/tronUtils";
-import { getLiveTronTransaction } from "@/lib/tron/trongridClient";
 import { evaluateTransactionRisk } from "@/lib/engine/riskScorer";
 import { evaluateComplianceRules } from "@/lib/rules/ruleEngine";
 import {
-  SUPPORTED_CHAINS,
   detectChainFromAddress,
   isValidAddressForChain,
 } from "@/lib/chains/chainConfig";
@@ -25,16 +22,6 @@ export async function POST(request) {
     const effectiveChain = chain
       ? chain.toUpperCase()
       : detectChainFromAddress(targetAddress, "TRON");
-
-    // Case 1: If on TRON and a live TX Hash is provided, attempt live lookup from TRON Mainnet
-    if (effectiveChain === "TRON" && txHash && isValidTronTxHash(txHash)) {
-      const liveTx = await getLiveTronTransaction(txHash);
-      if (liveTx && liveTx.trc20) {
-        from = liveTx.trc20.from || from;
-        to = liveTx.trc20.to || to;
-        amountUsdt = liveTx.trc20.amountUsdt || amountUsdt;
-      }
-    }
 
     // Clean input strings
     from = from ? from.trim() : "";

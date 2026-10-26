@@ -1,9 +1,7 @@
-import crypto from "crypto";
 import { USDT_TRON_CONTRACT } from "./tronUtils";
 
 // Public TRON RPC Gateway & Contract Hex
 const TRONGRID_HOST = process.env.TRONGRID_HOST;
-const TRONGRID_API_KEY = process.env.TRONGRID_API_KEY;
 const TRON_USDT_HEX = process.env.TRON_USDT_CONTRACT_HEX;
 
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -39,44 +37,6 @@ export function tronAddressToHex(base58) {
   bytes.reverse();
   const hex = Buffer.from(bytes.slice(0, 21)).toString("hex");
   return hex.startsWith("41") ? hex : `41${hex.slice(2)}`;
-}
-
-/**
- * Encodes a 41-prefix Hex address into Base58Check TRON address
- * @param {string} hexStr 
- * @returns {string} Base58Check starting with 'T'
- */
-export function hexToTronAddress(hexStr) {
-  if (!hexStr || typeof hexStr !== "string") return "";
-  let clean = hexStr.toLowerCase().replace(/^0x/, "");
-  if (clean.length === 40 && !clean.startsWith("41")) {
-    clean = "41" + clean;
-  }
-  const bytes = Buffer.from(clean, "hex");
-  const hash1 = crypto.createHash("sha256").update(bytes).digest();
-  const hash2 = crypto.createHash("sha256").update(hash1).digest();
-  const checksum = hash2.subarray(0, 4);
-  const fullBytes = Buffer.concat([bytes, checksum]);
-
-  let digits = [0];
-  for (let i = 0; i < fullBytes.length; i++) {
-    for (let j = 0; j < digits.length; j++) digits[j] <<= 8;
-    digits[0] += fullBytes[i];
-    let carry = 0;
-    for (let j = 0; j < digits.length; j++) {
-      digits[j] += carry;
-      carry = (digits[j] / 58) | 0;
-      digits[j] %= 58;
-    }
-    while (carry) {
-      digits.push(carry % 58);
-      carry = (carry / 58) | 0;
-    }
-  }
-  let str = "";
-  for (let i = 0; i < fullBytes.length && fullBytes[i] === 0; i++) str += ALPHABET[0];
-  for (let i = digits.length - 1; i >= 0; i--) str += ALPHABET[digits[i]];
-  return str;
 }
 
 /**
@@ -129,68 +89,5 @@ export async function checkLiveTetherBlacklistOnChain(base58Address) {
   } catch (err) {
     console.error("Error executing on-chain getBlackListStatus:", err);
     return { isFrozen: false, onChain: false, error: err.message };
-  }
-}
-
-/**
- * Fetches live transaction details by TX Hash from TRON Mainnet
- * @param {string} txHash 
- * @returns {Promise<object|null>}
- */
-export async function getLiveTronTransaction(txHash) {
-  try {
-    const cleanHash = txHash?.replace(/^0x/, "").trim();
-    if (!cleanHash || cleanHash.length !== 64) return null;
-
-    const res = await fetch(`${TRONGRID_HOST}/wallet/gettransactionbyid`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value: cleanHash }),
-      cache: "no-store",
-    });
-
-    if (!res.ok) return null;
-    const tx = await res.json();
-    if (!tx || !tx.txID) return null;
-
-    // Check if it's a TRC-20 TriggerSmartContract
-    const contract = tx.raw_data?.contract?.[0];
-    const isTrigger = contract?.type === "TriggerSmartContract";
-    const valueData = contract?.parameter?.value;
-
-    let trc20Details = null;
-    if (isTrigger && valueData) {
-      const contractHex = valueData.contract_address;
-      const callerHex = valueData.owner_address;
-      const dataHex = valueData.data || "";
-
-      // Check for ERC-20/TRC-20 Transfer: method id a9059cbb
-      if (dataHex.startsWith("a9059cbb") && dataHex.length >= 72) {
-        const toHexRaw = dataHex.slice(8 + 24, 8 + 64);
-        const toBase58 = hexToTronAddress("41" + toHexRaw);
-        const amountHex = dataHex.slice(72, 136);
-        const rawAmount = parseInt(amountHex, 16) || 0;
-        const usdtAmount = rawAmount / 1_000_000;
-
-        trc20Details = {
-          from: hexToTronAddress(callerHex),
-          to: toBase58,
-          amountUsdt: usdtAmount,
-          isUsdtContract: contractHex === TRON_USDT_HEX,
-        };
-      }
-    }
-
-    return {
-      txHash: tx.txID,
-      timestamp: tx.raw_data?.timestamp ? new Date(tx.raw_data.timestamp).toISOString() : new Date().toISOString(),
-      feeTron: (tx.ret?.[0]?.fee || 0) / 1_000_000,
-      status: tx.ret?.[0]?.contractRet || "SUCCESS",
-      trc20: trc20Details,
-      raw: tx,
-    };
-  } catch (err) {
-    console.error("Live TRON TX fetch error:", err);
-    return null;
   }
 }
