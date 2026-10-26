@@ -43,11 +43,9 @@ export async function evaluateTransactionRisk({
     : detectChainFromAddress(from || to, "TRON");
   const chainConfig = SUPPORTED_CHAINS[effectiveChain] || SUPPORTED_CHAINS.TRON;
 
-  // 1. Resolve direct counterparties with chain awareness
-  const [senderEntity, recipientEntity] = await Promise.all([
-    resolveEntity(from, effectiveChain),
-    resolveEntity(to, effectiveChain),
-  ]);
+  // 1. Resolve target counterparty with chain awareness
+  const senderEntity = await resolveEntity(from, effectiveChain);
+  const recipientEntity = to ? await resolveEntity(to, effectiveChain) : null;
 
   const riskIndicators = [];
   let highestScore = 0;
@@ -76,8 +74,8 @@ export async function evaluateTransactionRisk({
     }
   }
 
-  // 3. Check Hop 1 (Direct) Exposure on Recipient
-  if (recipientEntity.category.id !== "REGULATED_EXCHANGE" && recipientEntity.category.id !== "CLEAN_UNHOSTED") {
+  // 3. Check Hop 1 (Direct) Exposure on Recipient (if recipient is provided)
+  if (recipientEntity && recipientEntity.category.id !== "REGULATED_EXCHANGE" && recipientEntity.category.id !== "CLEAN_UNHOSTED") {
     const indicator = {
       id: `IND-DIR-REC-${Date.now()}`,
       direction: "DESTINATION",
@@ -138,16 +136,22 @@ export async function evaluateTransactionRisk({
       });
     }
   } else {
-    // Default 2-node flow (Sender -> Recipient)
+    // Single or 2-node flow
     flowPath.push(
-      { hopDistance: 0, address: from, entity: senderEntity.entity, category: senderEntity.category, exposurePercentage: 100 },
-      { hopDistance: 1, address: to, entity: recipientEntity.entity, category: recipientEntity.category, exposurePercentage: 100 }
+      { hopDistance: 0, address: from, entity: senderEntity.entity, category: senderEntity.category, exposurePercentage: 100 }
     );
+    if (recipientEntity) {
+      flowPath.push(
+        { hopDistance: 1, address: to, entity: recipientEntity.entity, category: recipientEntity.category, exposurePercentage: 100 }
+      );
+    }
   }
 
   // 5. Calculate Final Score (0 - 100)
   let finalScore = highestScore;
-  if (senderEntity.isSanctioned || recipientEntity.isSanctioned || senderEntity.isTetherFrozen || recipientEntity.isTetherFrozen) {
+  const isSenderFlagged = senderEntity.isSanctioned || senderEntity.isTetherFrozen;
+  const isRecipientFlagged = recipientEntity && (recipientEntity.isSanctioned || recipientEntity.isTetherFrozen);
+  if (isSenderFlagged || isRecipientFlagged) {
     finalScore = 100;
   } else if (finalScore === 0) {
     finalScore = 4; // Baseline low risk for clean unhosted / exchange transfer

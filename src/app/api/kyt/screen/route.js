@@ -6,38 +6,18 @@ import {
   isValidAddressForChain,
 } from "@/lib/chains/chainConfig";
 
-const DEFAULT_CLEAN_RECIPIENTS = {
-  TRON: process.env.NEXT_PUBLIC_DEFAULT_TRON_WALLET,
-  ETHEREUM: process.env.NEXT_PUBLIC_DEFAULT_ETH_WALLET,
-  BSC: process.env.NEXT_PUBLIC_DEFAULT_BSC_WALLET,
-};
-
 export async function POST(request) {
   try {
     const body = await request.json();
-    let { txHash, from, to, amountUsdt = 1000, customHops, chain } = body;
+    let { from, to, amountUsdt = 0, customHops, chain } = body;
 
     // Determine target chain
-    const targetAddress = from || body.address || to || "";
+    const targetAddress = (from || body.address || "").trim();
     const effectiveChain = chain
       ? chain.toUpperCase()
       : detectChainFromAddress(targetAddress, "TRON");
 
-    // Clean input strings
-    from = from ? from.trim() : "";
-    to = to ? to.trim() : "";
-
-    // Support single wallet screening: if one side is missing, use default clean recipient
-    if (!from && body.address) {
-      from = body.address.trim();
-    }
-    if (from && !to) {
-      to = DEFAULT_CLEAN_RECIPIENTS[effectiveChain] || DEFAULT_CLEAN_RECIPIENTS.TRON;
-    } else if (to && !from) {
-      from = DEFAULT_CLEAN_RECIPIENTS[effectiveChain] || DEFAULT_CLEAN_RECIPIENTS.TRON;
-    }
-
-    if (!from || !to) {
+    if (!targetAddress) {
       return NextResponse.json(
         {
           error: `Valid ${effectiveChain} wallet address is required for screening.`,
@@ -47,10 +27,10 @@ export async function POST(request) {
     }
 
     // Validate address formats for the selected chain
-    if (!isValidAddressForChain(effectiveChain, from)) {
+    if (!isValidAddressForChain(effectiveChain, targetAddress)) {
       return NextResponse.json(
         {
-          error: `Sender address "${from}" is not a valid ${effectiveChain} address (${
+          error: `Wallet address "${targetAddress}" is not a valid ${effectiveChain} address (${
             effectiveChain === "TRON" ? "Base58 starting with T" : "0x-prefixed 40-hex string"
           }).`,
         },
@@ -58,22 +38,21 @@ export async function POST(request) {
       );
     }
 
-    if (!isValidAddressForChain(effectiveChain, to)) {
+    const cleanTo = to ? to.trim() : null;
+    if (cleanTo && !isValidAddressForChain(effectiveChain, cleanTo)) {
       return NextResponse.json(
         {
-          error: `Recipient address "${to}" is not a valid ${effectiveChain} address (${
-            effectiveChain === "TRON" ? "Base58 starting with T" : "0x-prefixed 40-hex string"
-          }).`,
+          error: `Recipient address "${cleanTo}" is not a valid ${effectiveChain} address.`,
         },
         { status: 400 }
       );
     }
 
-    // Execute Multi-Hop Risk Assessment
+    // Execute Risk Assessment
     const riskAssessment = await evaluateTransactionRisk({
-      txHash: txHash || `${effectiveChain}_SIM_${Date.now()}`,
-      from,
-      to,
+      txHash: `${effectiveChain}_AUDIT_${Date.now()}`,
+      from: targetAddress,
+      to: cleanTo,
       amountUsdt: Number(amountUsdt),
       chain: effectiveChain,
       customHops,

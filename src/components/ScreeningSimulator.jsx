@@ -7,99 +7,6 @@ import {
   getExplorerAddressUrl,
 } from "@/lib/chains/chainConfig";
 
-const MULTI_CHAIN_SCENARIOS = {
-  TRON: [
-    {
-      title: "OFAC Sanctions (Lazarus)",
-      chain: "TRON",
-      description: "North Korea DPRK cyber exploitation cashout address",
-      from: "TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9",
-      badge: "CRITICAL",
-    },
-    {
-      title: "Tether Smart Contract Freeze",
-      chain: "TRON",
-      description: "On-chain frozen by Tether admin in TRC-20 contract (KK Park)",
-      from: "TDqP8VvBknWk4C38Gv6HjL8kQ9bU1wX4Q9",
-      badge: "CRITICAL",
-    },
-    {
-      title: "Pig Butchering Scam Hub",
-      chain: "TRON",
-      description: "KK Park industrial fraud compound in Southeast Asia",
-      from: "TScam8vBknWk4C38Gv6HjL8kQ9bU1wK8P1",
-      badge: "HIGH",
-    },
-    {
-      title: "Binance Verified Clean Deposit",
-      chain: "TRON",
-      description: "Regulated exchange inter-hot wallet transfer",
-      from: "TKzBDW5kPqSL69c5eC26b4N6W5vT4HkU9k",
-      badge: "LOW",
-    },
-  ],
-  ETHEREUM: [
-    {
-      title: "OFAC Mixer (Tornado Cash)",
-      chain: "ETHEREUM",
-      description: "Core privacy mixer router contract sanctioned under EO 13694",
-      from: "0xd90e2f925DA726b50C4Ed8D0Fb90Ad053324F31b",
-      badge: "CRITICAL",
-    },
-    {
-      title: "Tether Freeze (Multichain Exploit)",
-      chain: "ETHEREUM",
-      description: "Stolen bridge reserves frozen on-chain via ERC-20 addBlackList()",
-      from: "0x1da5821544e25c636c1417ba96ade4cf6d2f9b5a",
-      badge: "CRITICAL",
-    },
-    {
-      title: "Lazarus Ronin Bridge Loot",
-      chain: "ETHEREUM",
-      description: "Primary cyber laundering node for $620M Axie Ronin hack",
-      from: "0x098B716B8Aaf21512996dC57EB0615e2383E2f96",
-      badge: "CRITICAL",
-    },
-    {
-      title: "Binance to Kraken Institutional",
-      chain: "ETHEREUM",
-      description: "Institutional ERC-20 USDT transfer between verified VASPs",
-      from: "0xDFd5293D8e347dFe59E90eFd55b2956a1343963d",
-      badge: "LOW",
-    },
-  ],
-  BSC: [
-    {
-      title: "Tether Freeze (PinkDrainer)",
-      chain: "BSC",
-      description: "Web3 Discord approval drainer cashout node frozen on BSC",
-      from: "0x3c7885b54687C5f92Aeb9d4a4d658C08A46eF915",
-      badge: "CRITICAL",
-    },
-    {
-      title: "OFAC Sanctions (Garantex Gateway)",
-      chain: "BSC",
-      description: "Russian illicit crypto brokerage BEP-20 liquidation portal",
-      from: "0x7F367cc41522cE07553e823bf3be79A889DEbe1B",
-      badge: "HIGH",
-    },
-    {
-      title: "Unhosted Whale Transfer ($180K)",
-      chain: "BSC",
-      description: "Large unhosted transfer triggering Enhanced Due Diligence (EDD)",
-      from: "0x8894E0a0c962CB723c1976a4421c95949bE2D4E3",
-      badge: "MEDIUM",
-    },
-    {
-      title: "PancakeSwap AMM Liquidity",
-      chain: "BSC",
-      description: "Clean decentralized liquidity pool routing on PancakeSwap",
-      from: "0xF977814e90dA44bFA03b6295A0616a897441aceC",
-      badge: "LOW",
-    },
-  ],
-};
-
 export default function ScreeningSimulator({ targetAddress = "", targetChain = "" }) {
   const [selectedChain, setSelectedChain] = useState("TRON");
   const [fromAddress, setFromAddress] = useState(targetAddress || "");
@@ -121,13 +28,6 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
 
   const handleChainChange = (chain) => {
     setSelectedChain(chain);
-    setResult(null);
-    setError(null);
-  };
-
-  const applyScenario = (s) => {
-    setSelectedChain(s.chain);
-    setFromAddress(s.from);
     setResult(null);
     setError(null);
   };
@@ -243,45 +143,6 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           >
             {currentChainConfig.contract} &#x2197;
           </a>
-        </div>
-      </div>
-
-      {/* Preset Scenario Quick-Pickers */}
-      <div>
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-          {currentChainConfig.name} Real-World Test Scenarios:
-        </span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {MULTI_CHAIN_SCENARIOS[selectedChain].map((s, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => applyScenario(s)}
-              className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 text-left transition-all hover:bg-slate-800/60 group"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white group-hover:text-cyan-300">
-                  {s.title}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    s.badge === "CRITICAL"
-                      ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                      : s.badge === "HIGH"
-                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
-                      : s.badge === "MEDIUM"
-                      ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                      : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  }`}
-                >
-                  {s.badge}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
-                {s.description}
-              </p>
-            </button>
-          ))}
         </div>
       </div>
 

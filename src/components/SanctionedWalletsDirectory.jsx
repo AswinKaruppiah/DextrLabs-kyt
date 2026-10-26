@@ -7,7 +7,6 @@ import { getExplorerAddressUrl } from "@/lib/chains/chainConfig";
 export default function SanctionedWalletsDirectory() {
   const [sanctions, setSanctions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [chainFilter, setChainFilter] = useState("ALL");
   const [threatFilter, setThreatFilter] = useState("ALL");
   const [copiedAddress, setCopiedAddress] = useState(null);
@@ -37,24 +36,13 @@ export default function SanctionedWalletsDirectory() {
     // Threat filter
     if (threatFilter !== "ALL" && item.threatType !== threatFilter) return false;
 
-    // Search filter
-    if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      const matchAddr = item.address.toLowerCase().includes(q);
-      const matchEntity = item.entity.toLowerCase().includes(q);
-      const matchAuthority = item.authority.toLowerCase().includes(q);
-      const matchCitation = item.legalCitation?.toLowerCase().includes(q);
-      const matchDetails = item.details?.toLowerCase().includes(q);
-      return matchAddr || matchEntity || matchAuthority || matchCitation || matchDetails;
-    }
-
     return true;
   });
 
   return (
     <div className="w-full bg-slate-900/90 border border-slate-800 rounded-2xl shadow-xl overflow-hidden space-y-4 p-5">
       
-      {/* Directory Title & Controls */}
+      {/* Directory Title */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -67,26 +55,6 @@ export default function SanctionedWalletsDirectory() {
           <p className="text-xs text-slate-400 mt-0.5">
             Public registry of government-designated OFAC targets, Tether on-chain freezes, and verified cyber scam clusters.
           </p>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative min-w-[280px]">
-          <input
-            type="text"
-            placeholder="Search address, entity, notice ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 pl-9 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
-          />
-          <span className="absolute left-3 top-2.5 text-slate-500 text-xs">🔍</span>
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-2 text-slate-400 hover:text-white text-xs"
-            >
-              ✕
-            </button>
-          )}
         </div>
       </div>
 
@@ -152,7 +120,7 @@ export default function SanctionedWalletsDirectory() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-12 text-center text-xs text-slate-400">
-          No sanctioned wallets found matching &quot;{search}&quot;.
+          No sanctioned wallets currently loaded in registry.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-800">

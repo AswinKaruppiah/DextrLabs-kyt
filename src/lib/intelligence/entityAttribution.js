@@ -73,92 +73,11 @@ export const RISK_CATEGORIES = {
   },
 };
 
-// Known Regulated Exchanges (TRON, Ethereum, and BSC deposit/hot wallets)
-const REGULATED_EXCHANGES = {
-  // TRON
-  "TNDU9Z68eKx6H5k9bU1wX7Y8Z9kQ4V1m8K": { name: "Binance TRON Hot Wallet 1", entity: "Binance", chain: "TRON" },
-  "TKzBDW5kPqSL69c5eC26b4N6W5vT4HkU9k": { name: "Binance TRON Hot Wallet 2", entity: "Binance", chain: "TRON" },
-  "TPyjyZvBknWk4C38Gv6HjL8kQ9bU1wZ9K3": { name: "OKX Settlement Hot Wallet", entity: "OKX", chain: "TRON" },
-  "TWd4vBknWk4C38Gv6HjL8kQ9bU1wZ9K3P2": { name: "Bybit Custody Pool", entity: "Bybit", chain: "TRON" },
-  "TR8vBknWk4C38Gv6HjL8kQ9bU1wZ9K3P1Q": { name: "Kraken Digital Asset TRON Cold", entity: "Kraken", chain: "TRON" },
+// Known Regulated Exchanges (to be populated from external dynamic source)
+const REGULATED_EXCHANGES = {};
 
-  // Ethereum (EVM)
-  "0x28C6c06298d514Db089934071355E5743bf21d60": { name: "Binance 14 (ERC-20 Hot Wallet)", entity: "Binance", chain: "ETHEREUM" },
-  "0xDFd5293D8e347dFe59E90eFd55b2956a1343963d": { name: "Binance 16 (ERC-20 Deposit Pool)", entity: "Binance", chain: "ETHEREUM" },
-  "0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8": { name: "Binance 7 (ERC-20 Cold Storage)", entity: "Binance", chain: "ETHEREUM" },
-  "0x6cC5F688a30d3790e980271DE884772113c450ada": { name: "Kraken ERC-20 Hot Settlement", entity: "Kraken", chain: "ETHEREUM" },
-  "0x0D0707963952f2fBA59dD06f2b425ace40b492Fe": { name: "Gate.io Custodial Hot Wallet", entity: "Gate.io", chain: "ETHEREUM" },
-
-  // BSC (BNB Smart Chain)
-  "0x8894E0a0c962CB723c1976a4421c95949bE2D4E3": { name: "Binance BSC Hot Wallet", entity: "Binance", chain: "BSC" },
-  "0xF977814e90dA44bFA03b6295A0616a897441aceC": { name: "Binance 8 (BEP-20 Asset Custody)", entity: "Binance", chain: "BSC" },
-  "0x10ED43C718714eb63d5aA57B78B54704E256024E": { name: "PancakeSwap v2 Core AMM Router", entity: "PancakeSwap DEX", chain: "BSC" },
-};
-
-// Known Pig Butchering / Fraud / Exploit Clusters across TRON, Ethereum, BSC
-const SCAM_CLUSTERS = {
-  // TRON
-  "TScam8vBknWk4C38Gv6HjL8kQ9bU1wK8P1": {
-    entity: "KK Park Industrial Scam Hub (Myawaddy)",
-    chain: "TRON",
-    category: "PIG_BUTCHERING_SCAM",
-    source: "Chainabuse / TRM Threat Intel / UNODC Southeast Asia Report",
-    confidence: "HIGH_CONFIDENCE_CLUSTER",
-    details: "Consolidation deposit wallet operated by romance/crypto investment scam syndicates in Myanmar.",
-  },
-  "TPhish9b5vBknWk4C38Gv6HjL8kQ9bU1wX7L": {
-    entity: "TRON Approval Drainer Syndicate",
-    chain: "TRON",
-    category: "EXCHANGE_EXPLOIT",
-    source: "On-Chain Phishing Telemetry / ScamSearch",
-    confidence: "VERIFIED_EXPLOIT",
-    details: "Malicious smart contract allowance drainer targeting unhosted TRON Web3 wallets.",
-  },
-
-  // Ethereum
-  "0xd90e2f925DA726b50C4Ed8D0Fb90Ad053324F31b": {
-    entity: "Tornado Cash (Privacy Mixer Router)",
-    chain: "ETHEREUM",
-    category: "SANCTIONS_OFAC",
-    source: "US Treasury OFAC SDN Designation / CYBER2",
-    confidence: "VERIFIED_GOVERNMENT_DESIGNATION",
-    details: "Decentralized privacy mixer sanctioned under EO 13694 for DPRK state-sponsored laundering.",
-  },
-  "0x098B716B8Aaf21512996dC57EB0615e2383E2f96": {
-    entity: "Lazarus Group (Ronin Bridge Hack Exploiter)",
-    chain: "ETHEREUM",
-    category: "SANCTIONS_OFAC",
-    source: "FBI / OFAC Cyber Sanctions Advisory",
-    confidence: "VERIFIED_GOVERNMENT_DESIGNATION",
-    details: "Primary laundering destination for $620M in stolen cross-chain bridge assets.",
-  },
-  "0x1da5821544e25c636c1417ba96ade4cf6d2f9b5a": {
-    entity: "Multichain Hack Exploit Loot Address",
-    chain: "ETHEREUM",
-    category: "EXCHANGE_EXPLOIT",
-    source: "On-Chain Security Post-Mortem / PeckShield",
-    confidence: "VERIFIED_EXPLOIT",
-    details: "Funds extracted in unauthorized bridge exploit, frozen on-chain by Tether Ltd.",
-  },
-
-  // BSC
-  "0x3c7885b54687C5f92Aeb9d4a4d658C08A46eF915": {
-    entity: "PinkDrainer BEP-20 Cashout Node",
-    chain: "BSC",
-    category: "EXCHANGE_EXPLOIT",
-    source: "ScamSniffer Threat Feed / BSC Security",
-    confidence: "VERIFIED_EXPLOIT",
-    details: "Laundering node for social engineering phishing campaigns targeting Web3 Discord users.",
-  },
-  "0x7F367cc41522cE07553e823bf3be79A889DEbe1B": {
-    entity: "Garantex BSC High-Risk Liquidity Gateway",
-    chain: "BSC",
-    category: "SANCTIONS_OFAC",
-    source: "OFAC SDN Designation / Treasury EO 14024",
-    confidence: "VERIFIED_GOVERNMENT_DESIGNATION",
-    details: "Sanctioned Russian OTC BEP-20 USDT liquidation bridge.",
-  },
-};
+// Known Fraud / Exploit Clusters (to be populated from external dynamic source)
+const SCAM_CLUSTERS = {};
 
 /**
  * Resolves full entity attribution for a wallet address across TRON, Ethereum, or BSC.
