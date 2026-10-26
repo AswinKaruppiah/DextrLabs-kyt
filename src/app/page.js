@@ -8,13 +8,6 @@ import { SUPPORTED_CHAINS, getExplorerAddressUrl } from "@/lib/chains/chainConfi
 
 export default function KytDashboardPage() {
   const [activeTab, setActiveTab] = useState("CHECKER"); // "CHECKER" | "SANCTIONS"
-  const [targetWalletToCheck, setTargetWalletToCheck] = useState({ address: "", chain: "TRON" });
-
-  // Handler when user clicks "Check Wallet →" from the Sanctioned Wallets Directory
-  const handleSelectWalletForCheck = (address, chain) => {
-    setTargetWalletToCheck({ address, chain });
-    setActiveTab("CHECKER");
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
@@ -98,16 +91,11 @@ export default function KytDashboardPage() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
         {activeTab === "CHECKER" ? (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <ScreeningSimulator
-              targetAddress={targetWalletToCheck.address}
-              targetChain={targetWalletToCheck.chain}
-            />
+            <ScreeningSimulator />
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <SanctionedWalletsDirectory
-              onSelectWalletForCheck={handleSelectWalletForCheck}
-            />
+            <SanctionedWalletsDirectory />
           </div>
         )}
       </main>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { truncateAddress } from "@/lib/tron/tronUtils";
 import { getExplorerAddressUrl } from "@/lib/chains/chainConfig";
 
-export default function SanctionedWalletsDirectory({ onSelectWalletForCheck }) {
+export default function SanctionedWalletsDirectory() {
   const [sanctions, setSanctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -164,7 +164,6 @@ export default function SanctionedWalletsDirectory({ onSelectWalletForCheck }) {
                 <th className="py-3 px-4">Entity / Attribution</th>
                 <th className="py-3 px-4">Threat Type</th>
                 <th className="py-3 px-4">Legal Citation / Authority</th>
-                <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -242,17 +241,6 @@ export default function SanctionedWalletsDirectory({ onSelectWalletForCheck }) {
                           {item.noticeId}
                         </span>
                       </div>
-                    </td>
-
-                    {/* Action Button */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <button
-                        onClick={() => onSelectWalletForCheck && onSelectWalletForCheck(item.address, item.chain)}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500 hover:text-slate-950 transition-all font-sans flex items-center gap-1.5 ml-auto"
-                      >
-                        <span>Check Wallet</span>
-                        <span>&rarr;</span>
-                      </button>
                     </td>
                   </tr>
                 );
