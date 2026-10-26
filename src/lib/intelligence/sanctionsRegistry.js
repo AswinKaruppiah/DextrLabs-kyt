@@ -1,81 +1,156 @@
-/**
- * U.S. OFAC SDN & International Sanctions Registry
- * Supports TRON (Base58), Ethereum (EVM 0x), and BSC (EVM 0x) digital currency addresses.
- */
+import fs from "fs";
+import path from "path";
+import { downloadAndAggregateSanctions, normalizeAddressKey, queryOpenSanctionsApi } from "./sanctionsDownloader";
+import { TETHER_FROZEN_ADDRESSES, checkTetherBlacklist } from "./tetherBlacklist";
 
-export const SANCTIONED_ADDRESSES = {};
+const DATA_DIR = path.join(process.cwd(), "data");
+const CACHE_FILE = path.join(DATA_DIR, "sanctions-cache.json");
 
-/**
- * Checks if an address (TRON, Ethereum, or BSC) is on official sanctions registries
- * Case-insensitive match for EVM addresses.
- * @param {string} address 
- * @returns {object|null}
- */
-export function checkSanctions(address) {
-  if (!address) return null;
-  const clean = address.trim();
+// In-memory cache
+let cachedData = null;
 
-  // Direct match (TRON Base58 is case-sensitive)
-  if (SANCTIONED_ADDRESSES[clean]) {
-    return SANCTIONED_ADDRESSES[clean];
+export function loadSanctionsCache() {
+  if (cachedData) {
+    return cachedData;
   }
 
-  // Case-insensitive match for 0x EVM addresses (Ethereum & BSC)
-  if (clean.startsWith("0x")) {
-    const lower = clean.toLowerCase();
-    for (const [addr, data] of Object.entries(SANCTIONED_ADDRESSES)) {
-      if (addr.toLowerCase() === lower) {
-        return data;
-      }
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const raw = fs.readFileSync(CACHE_FILE, "utf8");
+      cachedData = JSON.parse(raw);
+      return cachedData;
+    }
+  } catch (err) {
+    console.error("[SanctionsRegistry] Error reading cache file:", err);
+  }
+
+  return {
+    lastSync: null,
+    totalCount: 0,
+    providerCounts: {},
+    chainCounts: {},
+    addresses: {},
+  };
+}
+
+export function reloadSanctionsCache() {
+  cachedData = null;
+  return loadSanctionsCache();
+}
+
+/**
+ * Checks if an address (TRON, Ethereum, BSC, Bitcoin, etc.) is on any sanctions list.
+ * @param {string} address 
+ * @returns {Promise<object|null>}
+ */
+export async function checkSanctions(address) {
+  if (!address) return null;
+  const clean = address.trim();
+  const normalizedKey = normalizeAddressKey(clean);
+
+  const data = loadSanctionsCache();
+  if (data.addresses && data.addresses[normalizedKey]) {
+    const entry = data.addresses[normalizedKey];
+    return {
+      address: entry.address,
+      chain: entry.chain,
+      entity: entry.entity,
+      providers: entry.providers || [],
+      jurisdictions: entry.jurisdictions || [],
+      programs: entry.programs || [],
+      fatfNexus: entry.fatfNexus || null,
+      threatType: entry.threatType || "SANCTIONS_DESIGNATION",
+      threatLevel: entry.threatLevel || "CRITICAL",
+      riskWeight: entry.riskScore || 100,
+      confidence: "CONFIRMED_SANCTIONED",
+      authority: (entry.providers || []).join(", "),
+      noticeId: (entry.programs || []).join(", ") || "Sanctioned Entity",
+      legalCitation: (entry.citations && entry.citations[0]?.url) || "Official Sanctions Registry",
+      details: `Designated by: ${(entry.providers || []).join(", ")}${entry.fatfNexus ? " | High-Risk Jurisdictions: " + entry.fatfNexus : ""}`,
+      citations: entry.citations || [],
+    };
+  }
+
+  // Also check OpenSanctions API if API key configured
+  const apiKey = process.env.OPENSANCTIONS_API_KEY;
+  if (apiKey) {
+    const liveMatch = await queryOpenSanctionsApi(clean, apiKey);
+    if (liveMatch && liveMatch.matched) {
+      return {
+        address: clean,
+        chain: "EVM/TRON",
+        entity: liveMatch.entity,
+        providers: ["OPENSANCTIONS_LIVE", ...liveMatch.datasets],
+        jurisdictions: ["INTERNATIONAL"],
+        programs: [],
+        fatfNexus: null,
+        threatType: "SANCTIONS_DESIGNATION",
+        threatLevel: "CRITICAL",
+        riskWeight: 100,
+        confidence: "VERIFIED_LIVE_API",
+        authority: "OpenSanctions API",
+        noticeId: liveMatch.datasets?.join(", ") || "API Match",
+        legalCitation: "https://www.opensanctions.org",
+        details: `Identified by OpenSanctions API in datasets: ${(liveMatch.datasets || []).join(", ")}`,
+        citations: [{ authority: "OpenSanctions", url: `https://api.opensanctions.org/search/default?q=${clean}` }],
+      };
     }
   }
 
   return null;
 }
 
-import { TETHER_FROZEN_ADDRESSES } from "./tetherBlacklist";
-
 /**
- * Returns a consolidated, searchable array of all known sanctioned and bad wallets.
+ * Returns a list of all known sanctioned entities, formatted for UI and exports.
  */
-export function getAllSanctionedEntities() {
-  const list = [];
+export function getAllSanctionedEntities(filter = {}) {
+  const data = loadSanctionsCache();
+  let list = Object.values(data.addresses || {});
 
-  // 1. OFAC / Government Sanctions
-  for (const [address, data] of Object.entries(SANCTIONED_ADDRESSES)) {
-    list.push({
-      address,
-      chain: data.chain,
-      entity: data.entity,
-      threatType: "OFAC_SANCTION",
-      threatLabel: "OFAC Sanctions List",
-      badgeColor: "bg-red-500/20 text-red-400 border-red-500/30",
-      authority: data.authority,
-      noticeId: data.noticeId,
-      legalCitation: data.legalCitation,
-      details: data.details,
-      riskScore: data.riskWeight || 100,
-      verdict: "BAD",
-    });
+  // Append any known Tether frozen addresses
+  for (const [address, item] of Object.entries(TETHER_FROZEN_ADDRESSES)) {
+    const norm = normalizeAddressKey(address);
+    if (!data.addresses || !data.addresses[norm]) {
+      list.push({
+        address,
+        chain: item.chain,
+        entity: item.entity || "Tether Frozen Address",
+        providers: ["TETHER ON-CHAIN"],
+        jurisdictions: ["GLOBAL"],
+        programs: ["USDT Blacklist"],
+        fatfNexus: null,
+        threatType: "TETHER_FROZEN",
+        threatLevel: "CRITICAL",
+        riskScore: 100,
+        citations: [{ authority: "Tether Ltd On-Chain Contract", url: "https://tronscan.org" }],
+      });
+    }
   }
 
-  // 2. Tether Smart Contract On-Chain Blacklist
-  for (const [address, data] of Object.entries(TETHER_FROZEN_ADDRESSES)) {
-    list.push({
-      address,
-      chain: data.chain,
-      entity: data.entity,
-      threatType: "TETHER_FROZEN",
-      threatLabel: "Tether Smart Contract Freeze",
-      badgeColor: "bg-rose-500/20 text-rose-400 border-rose-500/30",
-      authority: "Tether Ltd On-Chain Admin",
-      noticeId: data.freezeTxHash ? `${data.freezeTxHash.slice(0, 10)}...` : "ON-CHAIN-FREEZE",
-      legalCitation: "Smart Contract addBlackList()",
-      details: data.reason,
-      riskScore: 100,
-      verdict: "BAD",
-    });
+  // Optional Filtering
+  if (filter.chain && filter.chain !== "ALL") {
+    list = list.filter((e) => e.chain?.toUpperCase() === filter.chain.toUpperCase());
   }
 
-  return list;
+  if (filter.provider && filter.provider !== "ALL") {
+    list = list.filter((e) => e.providers && e.providers.includes(filter.provider));
+  }
+
+  if (filter.search && filter.search.trim()) {
+    const q = filter.search.trim().toLowerCase();
+    list = list.filter(
+      (e) =>
+        e.address.toLowerCase().includes(q) ||
+        (e.entity && e.entity.toLowerCase().includes(q)) ||
+        (e.programs && e.programs.some((p) => p.toLowerCase().includes(q)))
+    );
+  }
+
+  return {
+    total: list.length,
+    lastSync: data.lastSync,
+    providerCounts: data.providerCounts || {},
+    chainCounts: data.chainCounts || {},
+    items: list,
+  };
 }

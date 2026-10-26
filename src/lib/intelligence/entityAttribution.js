@@ -143,6 +143,45 @@ export async function resolveEntity(address, chain = "TRON") {
     }
   }
 
+  // 2. Check official OFAC / NBCTF / International Sanctions Registry (TRON, ETH, BSC)
+  const sanctions = await checkSanctions(cleanAddr);
+  if (sanctions) {
+    const evidenceList = [
+      {
+        source: sanctions.authority,
+        program: sanctions.noticeId,
+        noticeId: sanctions.noticeId,
+        legalCitation: sanctions.legalCitation,
+        confidence: "100% - Official Government Designation",
+        details: sanctions.details,
+        providers: sanctions.providers || [],
+        fatfNexus: sanctions.fatfNexus || null,
+      },
+    ];
+
+    if (isTetherFrozen) {
+      evidenceList.push({
+        source: `Tether Smart Contract ${chainConfig.standard} (${chainConfig.contract})`,
+        ...tetherFreezeDetails,
+      });
+    }
+
+    return {
+      address: cleanAddr,
+      chain: effectiveChain,
+      entity: sanctions.entity,
+      category: RISK_CATEGORIES[sanctions.threatType] || RISK_CATEGORIES.SANCTIONS_OFAC,
+      confidence: sanctions.confidence,
+      isSanctioned: true,
+      isTetherFrozen: !!isTetherFrozen,
+      providers: sanctions.providers || [],
+      jurisdictions: sanctions.jurisdictions || [],
+      fatfNexus: sanctions.fatfNexus || null,
+      evidence: evidenceList,
+    };
+  }
+
+  // 3. Fallback: Tether Blacklisted on-chain (if not matched on explicit government sanctions list)
   if (isTetherFrozen) {
     return {
       address: cleanAddr,
@@ -152,34 +191,13 @@ export async function resolveEntity(address, chain = "TRON") {
       confidence: "VERIFIED_ON_CHAIN",
       isSanctioned: false,
       isTetherFrozen: true,
+      providers: ["TETHER ON-CHAIN"],
+      jurisdictions: [],
+      fatfNexus: null,
       evidence: [
         {
           source: `Tether Smart Contract ${chainConfig.standard} (${chainConfig.contract})`,
           ...tetherFreezeDetails,
-        },
-      ],
-    };
-  }
-
-  // 2. Check official OFAC / NBCTF Sanctions Registry (TRON, ETH, BSC)
-  const sanctions = checkSanctions(cleanAddr);
-  if (sanctions) {
-    return {
-      address: cleanAddr,
-      chain: effectiveChain,
-      entity: sanctions.entity,
-      category: RISK_CATEGORIES[sanctions.category] || RISK_CATEGORIES.SANCTIONS_OFAC,
-      confidence: sanctions.confidence,
-      isSanctioned: true,
-      isTetherFrozen: false,
-      evidence: [
-        {
-          source: sanctions.authority,
-          program: sanctions.program,
-          noticeId: sanctions.noticeId,
-          legalCitation: sanctions.legalCitation,
-          confidence: "100% - Official Government Designation",
-          details: sanctions.details,
         },
       ],
     };

@@ -89,11 +89,12 @@ export default function KytDashboardPage() {
 
       {/* Main Workspace Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6">
-        {activeTab === "CHECKER" ? (
+        {activeTab === "CHECKER" && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <ScreeningSimulator />
           </div>
-        ) : (
+        )}
+        {activeTab === "SANCTIONS" && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <SanctionedWalletsDirectory />
           </div>

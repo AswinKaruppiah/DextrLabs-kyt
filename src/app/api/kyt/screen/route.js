@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { evaluateTransactionRisk } from "@/lib/engine/riskScorer";
-import { evaluateComplianceRules } from "@/lib/rules/ruleEngine";
 import {
   detectChainFromAddress,
   isValidAddressForChain,
@@ -58,10 +57,7 @@ export async function POST(request) {
       customHops,
     });
 
-    // Apply Compliance Policies & Rules
-    const finalResult = evaluateComplianceRules(riskAssessment);
-
-    return NextResponse.json(finalResult, { status: 200 });
+    return NextResponse.json(riskAssessment, { status: 200 });
   } catch (error) {
     console.error("Screening endpoint error:", error);
     return NextResponse.json(

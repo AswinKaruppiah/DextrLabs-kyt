@@ -64,6 +64,9 @@ export async function evaluateTransactionRisk({
       exposurePercentage: 100.0,
       amountUsdt: amountUsdt,
       confidence: senderEntity.confidence,
+      providers: senderEntity.providers || [],
+      jurisdictions: senderEntity.jurisdictions || [],
+      fatfNexus: senderEntity.fatfNexus || null,
       evidence: senderEntity.evidence,
     };
     riskIndicators.push(indicator);
@@ -87,6 +90,9 @@ export async function evaluateTransactionRisk({
       exposurePercentage: 100.0,
       amountUsdt: amountUsdt,
       confidence: recipientEntity.confidence,
+      providers: recipientEntity.providers || [],
+      jurisdictions: recipientEntity.jurisdictions || [],
+      fatfNexus: recipientEntity.fatfNexus || null,
       evidence: recipientEntity.evidence,
     };
     riskIndicators.push(indicator);
@@ -210,7 +216,7 @@ export async function evaluateTransactionRisk({
     txHash: generatedTxHash,
     explorerTxUrl: getExplorerTxUrl(effectiveChain, generatedTxHash),
     explorerSenderUrl: getExplorerAddressUrl(effectiveChain, from),
-    explorerRecipientUrl: getExplorerAddressUrl(effectiveChain, to),
+    explorerRecipientUrl: to ? getExplorerAddressUrl(effectiveChain, to) : null,
     amountUsdt: Number(amountUsdt),
     timestamp: timestamp,
     riskScore: finalScore,
@@ -225,13 +231,15 @@ export async function evaluateTransactionRisk({
       isSanctioned: senderEntity.isSanctioned,
       isTetherFrozen: senderEntity.isTetherFrozen,
     },
-    recipient: {
-      address: to,
-      entity: recipientEntity.entity,
-      category: recipientEntity.category,
-      isSanctioned: recipientEntity.isSanctioned,
-      isTetherFrozen: recipientEntity.isTetherFrozen,
-    },
+    recipient: recipientEntity
+      ? {
+          address: to,
+          entity: recipientEntity.entity,
+          category: recipientEntity.category,
+          isSanctioned: recipientEntity.isSanctioned,
+          isTetherFrozen: recipientEntity.isTetherFrozen,
+        }
+      : null,
     riskIndicators: riskIndicators,
     flowPath: flowPath,
     highestRiskCategory: highestCategory ? highestCategory.id : "NONE",

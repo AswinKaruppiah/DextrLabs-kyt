@@ -237,11 +237,32 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                 </div>
                 <p className="text-xs mt-0.5 opacity-90 font-medium">
                   {result.riskScore >= 70
-                    ? `Threat: ${result.riskIndicators?.[0]?.entity || result.highestRiskCategory?.label || "OFAC Sanction / On-Chain Blacklist"} • Action: BLOCK & FREEZE`
+                    ? `Threat: ${result.riskIndicators?.[0]?.entity || result.highestRiskCategory?.label || "Sanctions / Blacklist"} • Action: ${result.finalAction || result.recommendedAction}`
                     : result.riskScore <= 20
-                    ? "Safe to transact. Zero OFAC sanctions, Tether blacklist, or scam cluster records found."
+                    ? "Safe to transact. Zero sanctions, Tether blacklist, or illicit cluster records found."
                     : "Enhanced due diligence required. Exposure to unhosted or shadow counterparty."}
                 </p>
+                {/* Detected Authorities Badges */}
+                {result.riskIndicators?.[0]?.providers?.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300">
+                      Designations:
+                    </span>
+                    {result.riskIndicators[0].providers.map((prov, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-900/40 text-red-300 border border-red-500/50"
+                      >
+                        {prov}
+                      </span>
+                    ))}
+                    {result.riskIndicators[0].fatfNexus && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/40 text-amber-300 border border-amber-500/50">
+                        {result.riskIndicators[0].fatfNexus}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
