@@ -1,5 +1,6 @@
 import { checkSanctions } from "./sanctionsRegistry";
 import { checkTetherBlacklist } from "./tetherBlacklist";
+import { lookupAddress } from "../collector/store";
 import { checkLiveTetherBlacklistOnChain } from "../tron/trongridClient";
 import { SUPPORTED_CHAINS, detectChainFromAddress } from "../chains/chainConfig";
 
@@ -47,6 +48,14 @@ export const RISK_CATEGORIES = {
     action: "HOLD_FOR_INVESTIGATION",
     color: "#EA580C",
   },
+  PHISHING_SCAM: {
+    id: "PHISHING_SCAM",
+    label: "Phishing / Wallet Drainer",
+    severity: "HIGH",
+    baseScore: 75,
+    action: "MANUAL_REVIEW_SAR",
+    color: "#F59E0B",
+  },
   UNLICENSED_SHADOW_OTC: {
     id: "UNLICENSED_SHADOW_OTC",
     label: "Unlicensed / High-Risk Shadow OTC",
@@ -76,8 +85,11 @@ export const RISK_CATEGORIES = {
 // Known Regulated Exchanges (to be populated from external dynamic source)
 const REGULATED_EXCHANGES = {};
 
-// Known Fraud / Exploit Clusters (to be populated from external dynamic source)
-const SCAM_CLUSTERS = {};
+// OSINT categories in the intel database -> risk categories. Tier-4 labels never block on their own.
+const OSINT_CATEGORY_MAP = {
+  HACK_EXPLOIT: RISK_CATEGORIES.EXCHANGE_EXPLOIT,
+  SCAM_PHISHING: RISK_CATEGORIES.PHISHING_SCAM,
+};
 
 /**
  * Resolves full entity attribution for a wallet address across TRON, Ethereum, or BSC.
@@ -127,7 +139,7 @@ export async function resolveEntity(address, chain = "TRON") {
 
   // Check static blacklist (covers ETH, BSC, and TRON fallback)
   if (!isTetherFrozen) {
-    const staticBlacklist = checkTetherBlacklist(cleanAddr);
+    const staticBlacklist = checkTetherBlacklist(cleanAddr, effectiveChain);
     if (staticBlacklist) {
       isTetherFrozen = true;
       tetherFreezeDetails = {
@@ -136,15 +148,17 @@ export async function resolveEntity(address, chain = "TRON") {
         status: "FROZEN_ON_CHAIN",
         confidence: "100% - Smart Contract State",
         timestamp: new Date().toISOString(),
-        legalNotice: staticBlacklist.reason || `Tether Ltd has permanently frozen all ${chainConfig.standard} USDT tokens in this address.`,
-        amountFrozenUsdt: staticBlacklist.amountFrozenUsdt,
+        legalNotice: staticBlacklist.reason,
         freezeTxHash: staticBlacklist.freezeTxHash,
+        freezeTxUrl: staticBlacklist.freezeTxUrl,
+        frozenAt: staticBlacklist.frozenAt,
+        fundsDestroyed: staticBlacklist.fundsDestroyed,
       };
     }
   }
 
   // 2. Check official OFAC / NBCTF / International Sanctions Registry (TRON, ETH, BSC)
-  const sanctions = await checkSanctions(cleanAddr);
+  const sanctions = await checkSanctions(cleanAddr, effectiveChain);
   if (sanctions) {
     const evidenceList = [
       {
@@ -203,38 +217,30 @@ export async function resolveEntity(address, chain = "TRON") {
     };
   }
 
-  // 3. Check Known Scam / Industrial Fraud / Exploit Clusters
-  let scamCluster = SCAM_CLUSTERS[cleanAddr];
-  if (!scamCluster && cleanAddr.startsWith("0x")) {
-    const lower = cleanAddr.toLowerCase();
-    for (const [addr, data] of Object.entries(SCAM_CLUSTERS)) {
-      if (addr.toLowerCase() === lower) {
-        scamCluster = data;
-        break;
-      }
-    }
-  }
-
-  if (scamCluster) {
+  // 4. Check OSINT scam / phishing / hack labels from the intel database
+  const osint = lookupAddress(effectiveChain, cleanAddr)?.sources.filter((s) => OSINT_CATEGORY_MAP[s.category]) || [];
+  if (osint.length) {
+    // Hack/exploit outranks scam/phishing when both are present.
+    const primary = osint.find((s) => s.category === "HACK_EXPLOIT") || osint[0];
     return {
       address: cleanAddr,
       chain: effectiveChain,
-      entity: scamCluster.entity,
-      category: RISK_CATEGORIES[scamCluster.category] || RISK_CATEGORIES.PIG_BUTCHERING_SCAM,
-      confidence: scamCluster.confidence,
-      isSanctioned: scamCluster.category === "SANCTIONS_OFAC",
+      entity: primary.entity || "OSINT-flagged address",
+      category: OSINT_CATEGORY_MAP[primary.category],
+      confidence: "OSINT_LABELLED",
+      isSanctioned: false,
       isTetherFrozen: false,
-      evidence: [
-        {
-          source: scamCluster.source,
-          confidence: "88% - Multi-Source Forensic Cluster",
-          details: scamCluster.details,
-        },
-      ],
+      providers: [...new Set(osint.map((s) => s.authority))],
+      evidence: osint.map((s) => ({
+        source: s.authority,
+        confidence: `${s.confidence}% - OSINT / security-vendor label`,
+        details: s.entity,
+        legalCitation: s.reference?.url || null,
+      })),
     };
   }
 
-  // 4. Check Known Regulated Exchange Hot Wallets
+  // 5. Check Known Regulated Exchange Hot Wallets
   let exchange = REGULATED_EXCHANGES[cleanAddr];
   if (!exchange && cleanAddr.startsWith("0x")) {
     const lower = cleanAddr.toLowerCase();
@@ -265,7 +271,7 @@ export async function resolveEntity(address, chain = "TRON") {
     };
   }
 
-  // 5. Default Unhosted Wallet (Clean)
+  // 6. Default Unhosted Wallet (Clean)
   return {
     address: cleanAddr,
     chain: effectiveChain,

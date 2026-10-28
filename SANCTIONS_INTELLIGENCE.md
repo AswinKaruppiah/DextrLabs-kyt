@@ -1,121 +1,96 @@
-# Sanctions Intelligence & Data Feeds Architecture
+# Sanctions Intelligence & Screening Architecture
 
-This document outlines the exact data sources, government feeds, endpoints, and architectural principles used by **DextrLabs-KYT** to ingest, deduplicate, and screen cryptocurrency addresses for USDT compliance across **TRON**, **Ethereum**, and **BNB Smart Chain (BSC)**.
+How **DextrLabs-KYT** collects risk addresses and uses them to screen USDT activity on **TRON**, **Ethereum** and **BNB Smart Chain (BSC)**.
 
----
-
-## 1. Core Architectural Principles
-
-1. **Zero Hardcoded Mock Lists**: All sanctioned entities are dynamically downloaded from primary regulatory authorities and cached locally in `data/sanctions-cache.json`.
-2. **Multi-Source Deduplication**: If an address is designated by more than one authority (e.g., both US-OFAC and UK-OFSI), it is consolidated into a single record with individual badges for every designating body.
-3. **Verified Crypto Feeds Only (Tier 1)**: The platform only downloads feeds that actually contain verified blockchain wallet addresses, preventing wasted server memory from downloading empty non-crypto government XML files.
-4. **No Bitcoin (BTC)**: The system specifically focuses on USDT on TRON (TRC-20), Ethereum (ERC-20), and BSC (BEP-20); all Bitcoin addresses are filtered out.
-5. **Real-Time On-Chain Verification**: Complemented by live smart contract RPC calls to verify Tether's official on-chain freeze status.
+> Every external data source (URLs, formats, pricing, licenses, docs) is listed in **[DATA_SOURCES.md](DATA_SOURCES.md)**. This document covers how the data flows through the app.
 
 ---
 
-## 2. Active Sanctions Feeds & Official Sources
+## 1. Principles
 
-| # | Sanctioning Body / Regulator | Tag in Platform | Official Direct Feed Source | Focus & Assets |
-|:---|:---|:---:|:---|:---|
-| **1** | **United States Department of the Treasury (OFAC)** | `US-OFAC` | • `0xB10C/sanctioned_addresses_TRX.json`<br>• `0xB10C/sanctioned_addresses_ETH.json`<br>• `0xB10C/sanctioned_addresses_BSC.json`<br>• `https://data.opensanctions.org/datasets/latest/us_ofac_sdn/targets.simple.csv` | Specially Designated Nationals (SDN) and blocked digital currency addresses under OFAC sanctions. |
-| **2** | **Israel National Bureau for Counter Terror Financing (NBCTF)** | `IL-NBCTF` | • `https://data.opensanctions.org/datasets/latest/il_mod_crypto/targets.simple.csv` | Official administrative seizure orders (580+ addresses, 99.5% TRON TRC-20 USDT) targeting Hamas, Palestinian Islamic Jihad, and Hezbollah. |
-| **3** | **United Kingdom: Foreign, Commonwealth & Development Office (FCDO / OFSI)** | `UK-OFSI` | • `https://data.opensanctions.org/datasets/latest/gb_fcdo_sanctions/targets.simple.csv` | Official UK Sanctions List designations targeting Russian cybercrime, LockBit ransomware, and sanctions evasion. |
-| **4** | **Japan: Ministry of Finance & Foreign Affairs (MOFA / METI)** | `JAPAN-MOFA` | • `https://data.opensanctions.org/datasets/latest/jp_mof_sanctions/targets.simple.csv` | Japan Foreign Exchange and Foreign Trade Act (FEFTA) asset freeze notices targeting DPRK cyber networks. |
-| **5** | **FBI Cyber / US Department of Justice** | `FBI-CYBER` | • `https://data.opensanctions.org/datasets/latest/us_fbi_lazarus_crypto/targets.simple.csv` | State-sponsored cybercrime addresses attributed to Lazarus Group (DPRK). |
-| **6** | **Tether USDT Smart Contract (On-Chain)** | `TETHER ON-CHAIN` | • **TRON RPC Gateway**: `https://api.trongrid.io/wallet/triggerconstantcontract`<br>• **Contract**: `TR7NHqJEKQxGTCi8q8ZY4pL8otSzgjLj6t`<br>• **Method**: `getBlackListStatus(address)` | Live blockchain query verifying if Tether Ltd has permanently frozen USDT tokens in the address on-chain. |
+1. **One address database.** All wallet intelligence lives in `data/intel/addresses.json`, built by the collector. Screening and the directory UI read the same file. There are no hardcoded wallet lists in the code.
+2. **Primary sources, free, commercially usable.** Government lists are pulled directly from OFAC, the EU, UK FCDO, the UN and Israel NBCTF. OpenSanctions is **not** used, because its license is non-commercial.
+3. **Every flag shows its sources.** Each address carries every source that flagged it: authority, program, reference link, listing date, and whether the chain was named by the source (`listed`) or applied by EVM mirroring (`evm-mirror`).
+4. **Severity by tier.** Tier 1 (sanctions) and Tier 2 (Tether freezes) block. Tier 4 (OSINT) sends the address to review and never blocks on its own.
+5. **USDT chains only.** TRON, Ethereum and BSC. Bitcoin and other chains are rejected during collection.
 
 ---
 
-## 3. Why Other Government Lists (EU, UN, Canada, Australia) Are Handled Differently
-
-Many official government sanctions lists do **not** contain cryptocurrency addresses:
-
-* **European Union (EU)**: The official EU XML (`xmlFullSanctionsList_1_1`) contains **0** crypto wallet fields (only names, passports, and company records).
-* **United Nations (UN)**: The UN Consolidated List (`consolidated.xml`) contains **0** crypto wallet fields (only names, generals, and vessels).
-* **Canada (SEMA)**: The Canadian Autonomous Sanctions XML (`sema-lmes.xml`) contains **0** crypto wallet fields.
-* **Australia (DFAT)**: The Australian Consolidated List (`regulation8_consolidated.xlsx`) contains **0** crypto wallet fields.
-
-> **Decision**: To optimize memory and performance, the platform does **not** download 25+ MB XML files that lack cryptocurrency data. Instead, only Tier 1 authorities with verified on-chain addresses are ingested directly.
-
----
-
-## 4. Ingestion & Storage Architecture
+## 2. Data flow
 
 ```
-                                  [ External Feeds ]
-                                          │
-       ┌───────────────┬──────────────────┼─────────────────┬───────────────┐
-       ▼               ▼                  ▼                 ▼               ▼
-   [ US-OFAC ]    [ IL-NBCTF ]      [ JAPAN-MOFA ]     [ UK-OFSI ]    [ FBI-CYBER ]
-   (0xB10C/SDN)  (Israel NBCTF)     (Japan FEFTA)     (UK Sanctions)  (Lazarus DPRK)
-       │               │                  │                 │               │
-       └───────────────┴──────────────────┼─────────────────┴───────────────┘
-                                          ▼
-                         [ sanctionsDownloader.js ]
-                                          │
-                       - Address Normalization (TRON / EVM)
-                       - Bitcoin / Non-USDT Filter
-                       - Multi-Provider Deduplication
-                                          │
-                                          ▼
-                             data/sanctions-cache.json
-                                 (1,109 Addresses)
-                                          │
-                  ┌───────────────────────┴───────────────────────┐
-                  ▼                                               ▼
-         [ Screening Simulator ]                       [ Sanctioned Directory ]
-         POST /api/kyt/screen                          GET /api/kyt/sanctions
-         (+ Live Tether RPC)                           POST /api/kyt/sanctions/sync
+     Government lists              Issuer freezes                 OSINT
+ OFAC · EU · UK · UN · NBCTF   Tether TRON · Tether ETH   ScamSniffer · MEW · eth-labels · Forta
+             │                          │                              │
+             └──────────────────────────┼──────────────────────────────┘
+                                        ▼
+                     src/lib/collector  (npm run collect:intel)
+                     - validate (TRON checksum / EVM hex)
+                     - EVM mirroring ETH ⇄ BSC (sanctions only)
+                     - merge per chain:address, keep every source
+                     - keep last good snapshot if a feed fails
+                                        │
+                                        ▼
+                     data/intel/addresses.json   (~21.6k entries)
+                     data/intel/manifest.json    (feed health)
+                                        │
+                     src/lib/collector/store.js  (in-memory index, reloads on file change)
+                     ┌──────────────────┴───────────────────┐
+                     ▼                                      ▼
+      Screening  POST /api/kyt/screen          Directory  GET  /api/kyt/intel
+      riskScorer → entityAttribution                      POST /api/kyt/intel/sync
+                     │                                      │
+             ScreeningSimulator.jsx            SanctionedWalletsDirectory.jsx
 ```
-
-1. **Downloader Module** ([`src/lib/intelligence/sanctionsDownloader.js`](src/lib/intelligence/sanctionsDownloader.js)):
-   - Streams live directly from official remote URLs over HTTP (no local CSV/JSON/XLS files required).
-   - Ingests `0xB10C` curated raw blockchain feeds + `dedicatedOpenSanctions` feeds + Bulk OpenSanctions Sanctions feed.
-   - Tags all OpenSanctions-sourced records with `OPENSANCTIONS` alongside specific authority badges (`US-OFAC`, `IL-NBCTF`, `UK-OFSI`, `JAPAN-MOFA`, `FBI-CYBER`).
-   - Normalizes EVM addresses (`0x...` lowercase) and TRON addresses (`T...` trimmed).
-   - Filters out non-USDT / Bitcoin addresses.
-   - Upserts and groups multiple designating providers under each address.
-   - Writes consolidated payload to `data/sanctions-cache.json`.
-
-2. **Registry Lookup** ([`src/lib/intelligence/sanctionsRegistry.js`](src/lib/intelligence/sanctionsRegistry.js)):
-   - Loads the local JSON cache into memory for **O(1)** synchronous lookups during transaction screening.
-
-3. **Entity Attribution** ([`src/lib/intelligence/entityAttribution.js`](src/lib/intelligence/entityAttribution.js)):
-   - Checks on-chain Tether blacklist via RPC.
-   - Cross-references official sanctions cache.
-   - Merges evidence so if an address is both on OFAC and Tether-frozen, both proofs are surfaced.
-
-4. **Risk Scorer** ([`src/lib/engine/riskScorer.js`](src/lib/engine/riskScorer.js)):
-   - Calculates risk score (0 to 100).
-   - Generates compliance action (`BLOCK_AND_FREEZE`, `REJECT`, `APPROVE`).
-   - Propagates provider badges, jurisdictions, and evidence.
 
 ---
 
-## 5. API Endpoints
+## 3. Screening pipeline
 
-### `POST /api/kyt/sanctions/sync`
-Triggers an on-demand re-download and re-aggregation of all remote feeds.
-* **Response**: Returns `totalCount`, `providerCounts`, and `chainCounts`.
+[`resolveEntity(address, chain)`](src/lib/intelligence/entityAttribution.js) checks each address in this order and returns the first match:
 
-### `GET /api/kyt/sanctions`
-Retrieves paginated, searchable sanctions records from the local cache.
-* **Query Parameters**:
-  * `page` (default: 1)
-  * `limit` (default: 20)
-  * `chain` (e.g., `TRON`, `ETHEREUM`, `BSC`)
-  * `provider` (e.g., `US-OFAC`, `IL-NBCTF`, `JAPAN-MOFA`, `UK-OFSI`, `FBI-CYBER`)
-  * `search` (address or entity substring)
+| Step | Check | Backed by | Risk category | Score | Action |
+|---|---|---|---|---|---|
+| 1 | **Live Tether freeze (TRON only)**: `getBlackListStatus(address)` on `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` via TronGrid | On-chain RPC | `TETHER_FROZEN` | 100 | Block |
+| 1b | Tether freeze as of the last collection (TRON and ETH) | [`tetherBlacklist.js`](src/lib/intelligence/tetherBlacklist.js) → intel `ISSUER_FREEZE` | `TETHER_FROZEN` | 100 | Block |
+| 2 | **Government sanctions** (OFAC, EU, UK, UN, NBCTF) | [`sanctionsRegistry.js`](src/lib/intelligence/sanctionsRegistry.js) → intel `SANCTIONS` | `SANCTIONS_OFAC` | 100 | Block |
+| 3 | Tether freeze with no sanctions match | Steps 1 and 1b | `TETHER_FROZEN` | 100 | Block |
+| 4 | **OSINT hack / exploit** label | intel `HACK_EXPLOIT` | `EXCHANGE_EXPLOIT` | 82 | Review |
+| 4 | **OSINT scam / phishing** label | intel `SCAM_PHISHING` | `PHISHING_SCAM` | 75 | Review |
+| 5 | Regulated exchange hot wallet | `REGULATED_EXCHANGES` (**empty, no data source yet**) | `REGULATED_EXCHANGE` | 5 | Approve |
+| 6 | Nothing matched | — | `CLEAN_UNHOSTED` | 10 | Approve |
+
+If an address is both sanctioned and Tether-frozen, both are shown as evidence. Lookups are exact by **chain and address**. For example, an Ethereum Tether freeze does not flag the same address on BSC, while an Ethereum sanctions listing does, through EVM mirroring.
+
+[`riskScorer.js`](src/lib/engine/riskScorer.js) then combines the sender, the recipient and the hop exposure into a 0–100 score and a recommended action.
+
+---
+
+## 4. API endpoints
 
 ### `POST /api/kyt/screen`
-Performs end-to-end compliance screening on a wallet address or transaction.
-* **Request Body**:
-  ```json
-  {
-    "chain": "TRON",
-    "from": "TAkpWPt2JZdiLSkG7ZX2VAQkZQsnGZ1nqh",
-    "amountUsdt": 1000
-  }
-  ```
-* **Response**: Full risk assessment including risk score, risk level, recommended action, provider tags (`[US-OFAC]`, `[UK-OFSI]`), on-chain Tether state, and audit flow.
+Screens a wallet or a transaction.
+```json
+{ "chain": "TRON", "from": "TAkpWPt2JZdiLSkG7ZX2VAQkZQsnGZ1nqh", "amountUsdt": 1000 }
+```
+Returns the risk score, risk level, recommended action, provider badges (`US-OFAC`, `EU`, `UK-FCDO`, `UN`, `IL-NBCTF`, `TETHER ON-CHAIN`, OSINT authorities), evidence and the flow path.
+
+### `GET /api/kyt/intel`
+Search, filter and page the address database.
+Query: `search`, `chain` (`ALL|TRON|ETHEREUM|BSC`), `category` (`ALL|SANCTIONS|ISSUER_FREEZE|HACK_EXPLOIT|SCAM_PHISHING`), `source` (collector source id), `page`, `limit` (max 200).
+Returns the items, counts per filter, and the health of each source.
+
+### `POST /api/kyt/intel/sync`
+Re-runs every collector source (~90 s) and rebuilds `data/intel/`.
+
+---
+
+## 5. Known gaps
+
+| Gap | Impact | Next step |
+|---|---|---|
+| **FBI-attributed Lazarus Group (DPRK) addresses** | 11 Ethereum addresses that the old OpenSanctions feed `us_fbi_lazarus_crypto` provided are not covered | Add a source that parses FBI / IC3 public service announcements (US government, public domain) |
+| `REGULATED_EXCHANGES` is empty | Exchange hot wallets are scored as unhosted (10) instead of regulated (5) | Add an exchange-label source |
+| Data is only as fresh as the last collection | Freezes or designations made after the last sync are missed (TRON freezes are still caught live) | Schedule `npm run collect:intel`, e.g. hourly |
+| No transaction-graph expansion | Only listed addresses are flagged, not their funders or sweep wallets | Attribution expansion phase |
+| Missing `data/intel/` | Screening would approve everything; a warning is logged | Run `npm run collect:intel` after cloning (the folder is gitignored) |

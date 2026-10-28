@@ -1,134 +1,56 @@
-import fs from "fs";
-import path from "path";
-import { downloadAndAggregateSanctions, normalizeAddressKey } from "./sanctionsDownloader";
-import { TETHER_FROZEN_ADDRESSES, checkTetherBlacklist } from "./tetherBlacklist";
+import { lookupAddress } from "../collector/store";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const CACHE_FILE = path.join(DATA_DIR, "sanctions-cache.json");
-
-// In-memory cache
-let cachedData = null;
-let lastMtime = 0;
-
-export function loadSanctionsCache() {
-  try {
-    if (fs.existsSync(CACHE_FILE)) {
-      const stat = fs.statSync(CACHE_FILE);
-      if (cachedData && stat.mtimeMs === lastMtime) {
-        return cachedData;
-      }
-      const raw = fs.readFileSync(CACHE_FILE, "utf8");
-      cachedData = JSON.parse(raw);
-      lastMtime = stat.mtimeMs;
-      return cachedData;
-    }
-  } catch (err) {
-    console.error("[SanctionsRegistry] Error reading cache file:", err);
-  }
-
-  cachedData = null;
-  lastMtime = 0;
-  return {
-    lastSync: null,
-    totalCount: 0,
-    providerCounts: {},
-    chainCounts: {},
-    addresses: {},
-  };
-}
-
-export function reloadSanctionsCache() {
-  cachedData = null;
-  return loadSanctionsCache();
-}
+// Short provider labels shown as badges in the screening result. The 0xB10C extract is a
+// second copy of OFAC, so it is folded into US-OFAC rather than shown separately.
+const PROVIDER_LABELS = {
+  "ofac-sdn": "US-OFAC",
+  "ofac-0xb10c": "US-OFAC",
+  "eu-fsf": "EU",
+  "uk-sanctions-list": "UK-FCDO",
+  "un-consolidated": "UN",
+  "il-nbctf": "IL-NBCTF",
+};
 
 /**
- * Checks if an address (TRON, Ethereum, BSC, Bitcoin, etc.) is on any sanctions list.
- * @param {string} address 
+ * Checks an address against the government sanctions sources in the collected intel
+ * database (data/intel/addresses.json — see DATA_SOURCES.md).
+ * @param {string} address
+ * @param {string} chain  "TRON" | "ETHEREUM" | "BSC"
  * @returns {Promise<object|null>}
  */
-export async function checkSanctions(address) {
-  if (!address) return null;
-  const clean = address.trim();
-  const normalizedKey = normalizeAddressKey(clean);
+export async function checkSanctions(address, chain) {
+  const entry = lookupAddress(chain, address);
+  const designations = entry?.sources.filter((s) => s.category === "SANCTIONS") || [];
+  if (!designations.length) return null;
 
-  const data = loadSanctionsCache();
-  if (data.addresses && data.addresses[normalizedKey]) {
-    const entry = data.addresses[normalizedKey];
-    return {
-      address: entry.address,
-      chain: entry.chain,
-      entity: entry.entity,
-      providers: entry.providers || [],
-      jurisdictions: entry.jurisdictions || [],
-      programs: entry.programs || [],
-      fatfNexus: entry.fatfNexus || null,
-      threatType: entry.threatType || "SANCTIONS_DESIGNATION",
-      threatLevel: entry.threatLevel || "CRITICAL",
-      riskWeight: entry.riskScore || 100,
-      confidence: "CONFIRMED_SANCTIONED",
-      authority: (entry.providers || []).join(", "),
-      noticeId: (entry.programs || []).join(", ") || "Sanctioned Entity",
-      legalCitation: (entry.citations && entry.citations[0]?.url) || "Official Sanctions Registry",
-      details: `Designated by: ${(entry.providers || []).join(", ")}${entry.fatfNexus ? " | High-Risk Jurisdictions: " + entry.fatfNexus : ""}`,
-      citations: entry.citations || [],
-    };
-  }
-
-  return null;
-}
-
-/**
- * Returns a list of all known sanctioned entities, formatted for UI and exports.
- */
-export function getAllSanctionedEntities(filter = {}) {
-  const data = loadSanctionsCache();
-  let list = Object.values(data.addresses || {});
-
-  // Append any known Tether frozen addresses
-  for (const [address, item] of Object.entries(TETHER_FROZEN_ADDRESSES)) {
-    const norm = normalizeAddressKey(address);
-    if (!data.addresses || !data.addresses[norm]) {
-      list.push({
-        address,
-        chain: item.chain,
-        entity: item.entity || "Tether Frozen Address",
-        providers: ["TETHER ON-CHAIN"],
-        jurisdictions: ["GLOBAL"],
-        programs: ["USDT Blacklist"],
-        fatfNexus: null,
-        threatType: "TETHER_FROZEN",
-        threatLevel: "CRITICAL",
-        riskScore: 100,
-        citations: [{ authority: "Tether Ltd On-Chain Contract", url: "https://tronscan.org" }],
-      });
-    }
-  }
-
-  // Optional Filtering
-  if (filter.chain && filter.chain !== "ALL") {
-    list = list.filter((e) => e.chain?.toUpperCase() === filter.chain.toUpperCase());
-  }
-
-  if (filter.provider && filter.provider !== "ALL") {
-    list = list.filter((e) => e.providers && e.providers.includes(filter.provider));
-  }
-
-  if (filter.search && filter.search.trim()) {
-    const q = filter.search.trim().toLowerCase();
-    list = list.filter(
-      (e) =>
-        e.address.toLowerCase().includes(q) ||
-        (e.entity && e.entity.toLowerCase().includes(q)) ||
-        (e.programs && e.programs.some((p) => p.toLowerCase().includes(q)))
-    );
-  }
+  const providers = [...new Set(designations.map((s) => PROVIDER_LABELS[s.sourceId] || s.sourceId))];
+  const jurisdictions = [...new Set(designations.map((s) => s.jurisdiction))];
+  const programs = [...new Set(designations.flatMap((s) => s.programs || []))];
+  const citations = designations
+    .filter((s) => s.reference?.url && s.sourceId !== "ofac-0xb10c")
+    .map((s) => ({ authority: s.authority, url: s.reference.url, id: s.reference.id }));
+  // Prefer a real designated name over the generic label the 0xB10C extract carries.
+  const named = designations.find((s) => s.entity && s.sourceId !== "ofac-0xb10c");
+  const mirroredOnly = designations.every((s) => s.basis === "evm-mirror");
 
   return {
-    total: list.length,
-    lastSync: data.lastSync,
-    providerCounts: data.providerCounts || {},
-    chainCounts: data.chainCounts || {},
-    items: list,
+    address: entry.address,
+    chain: entry.chain,
+    entity: named?.entity || designations[0].entity || "Sanctioned Entity",
+    providers,
+    jurisdictions,
+    programs,
+    fatfNexus: null,
+    threatType: "SANCTIONS_OFAC",
+    threatLevel: "CRITICAL",
+    riskWeight: 100,
+    confidence: "CONFIRMED_SANCTIONED",
+    authority: providers.join(", "),
+    noticeId: programs.join(", ") || "Sanctioned Entity",
+    legalCitation: citations[0]?.url || "Official Sanctions Registry",
+    details:
+      `Designated by: ${providers.join(", ")}` +
+      (mirroredOnly ? ` (listed for another EVM chain; same key controls this ${entry.chain} address)` : ""),
+    citations,
   };
 }
