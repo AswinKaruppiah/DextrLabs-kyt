@@ -1,24 +1,30 @@
-// Usage: npm run collect:intel [-- --only=ofac-sdn,tether-usdt-tron]
-import { runCollection, INTEL_DIR } from "../src/lib/collector/run.js";
+// Usage: npm run collect:intel [-- --only=ofac-sdn,tether-usdt-tron] [--accept-shrink=ofac-sdn]
+import fs from "node:fs";
 
-const onlyArg = process.argv.find((a) => a.startsWith("--only="));
-const only = onlyArg ? onlyArg.slice("--only=".length).split(",").filter(Boolean) : null;
+// Plain `node` doesn't read .env (Next.js does), so load optional keys like TRONSCAN_API_KEY
+// and ETH_RPC_URL here. Variables already set in the environment win; a missing .env is fine.
+try {
+  for (const line of fs.readFileSync(".env", "utf8").split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (m && m[2] && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
+  }
+} catch {}
+
+const { runCollection, INTEL_DIR } = await import("../src/lib/collector/run.js");
+
+const listArg = (name) => {
+  const arg = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return arg ? arg.slice(name.length + 3).split(",").filter(Boolean) : null;
+};
+const only = listArg("only");
+const acceptShrink = listArg("accept-shrink") || [];
 
 console.log(`Collecting threat intelligence -> ${INTEL_DIR}`);
-const manifest = await runCollection({ only });
+const manifest = await runCollection({ only, acceptShrink });
 
 console.log(`\nDone in ${(manifest.durationMs / 1000).toFixed(1)}s`);
-console.log(
-  `  entries: ${manifest.totals.entries}  (+${manifest.totals.added} / -${manifest.totals.removed} since last run)`,
-);
-const ofac = manifest.crossCheck.ofac;
-if (ofac && (ofac.onlyInOfacDirect.length || ofac.onlyIn0xB10C.length)) {
-  console.log(
-    `  OFAC cross-check mismatch: ${ofac.onlyInOfacDirect.length} only in SDN.XML, ${ofac.onlyIn0xB10C.length} only in 0xB10C`,
-  );
-}
-const failed = manifest.sources.filter((s) => s.status !== "ok");
-if (failed.length) {
-  console.log(`  ${failed.length} source(s) not fresh: ${failed.map((s) => `${s.id}=${s.status}`).join(", ")}`);
-  process.exitCode = 1;
-}
+const t = manifest.totals;
+console.log(`  entries: ${t.entries} (${t.active} active, ${t.delisted} delisted)`);
+console.log(`  since last run: +${t.added} new, ${t.newlyDelisted} delisted, ${t.relisted} re-listed`);
+for (const w of manifest.warnings) console.log(`  ! ${w.sourceId}: ${w.message}`);
+if (manifest.warnings.some((w) => w.kind !== "cross-check")) process.exitCode = 1;

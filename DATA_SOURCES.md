@@ -41,7 +41,7 @@ This document lists every external service the KYT collector pulls data from: wh
 data/intel/
 ├── addresses.json        # MERGED database — one entry per chain:address, with every source that flagged it
 ├── manifest.json         # Status of the last run: per-source ok/stale/failed, counts, errors, OFAC cross-check
-├── changelog.jsonl       # One line per run: added / removed address keys (use for re-screening)
+├── changelog.jsonl       # One line per run: added / delisted / re-listed address keys (use for re-screening)
 └── sources/
     ├── ofac-sdn.json             # One snapshot per source: metadata + stats + normalized records
     ├── ofac-0xb10c.json
@@ -79,9 +79,19 @@ Raw downloads (XML, CSV, HTML) are **not** stored, only the normalized records. 
 ```bash
 npm run collect:intel                                       # all sources (~90 s)
 npm run collect:intel -- --only=ofac-sdn,tether-usdt-tron   # selected sources only
+npm run collect:intel -- --only=eu-fsf --accept-shrink=eu-fsf  # accept a blocked drop (see below)
 ```
 
-The **Sync Feeds** button in the UI does the same thing as the first command. The process exits with code 1 if any source was not fresh.
+The **Sync Feeds** button in the UI does the same thing as the first command, but as a background job: the button returns at once and the page shows each source's progress (`GET /api/kyt/intel/sync`). The run continues if the page is closed or refreshed. The CLI exits with code 1 if any source was not fresh or a drop was blocked.
+
+### Consistency guarantees
+- **One run at a time.** A lock file (`data/intel/.collect.lock`) is shared by the web app and the CLI. A second click joins the running job; a second CLI run exits with "another collection is already running". A lock left by a crashed process is taken over.
+- **Time limit per source** (default 4 min; TronScan 8 min, Tether ETH 6 min). A source that runs over is cancelled, including its in-flight downloads, and keeps its last good snapshot. The other sources still finish and the database is rebuilt.
+- **Shrink guard.** Each fresh result is compared with the last good snapshot. If the record count drops by more than 10% (sanctions), 5% (Tether freezes) or 30% (OSINT), the new result is parked in `sources/<id>.rejected.json`, the previous data is kept, and a warning with an **Accept new data** button appears in the UI. Accept it only after checking the publisher really delisted the addresses (e.g. OFAC's Tornado Cash delisting).
+- **Format checks.** Every parser throws if the publisher's file no longer has the expected structure (missing records, renamed columns), so a format change shows up as `stale` with a reason instead of an empty source.
+- **TronScan completeness.** A pass must read every row TronScan reports; if the list changes mid-read the pass is retried (up to 3 times). Never accepted short.
+- **Ethereum empty results.** Every empty `eth_getLogs` chunk is re-asked of a second node; if that one finds freeze events, its answer is used (`notes.emptyChecks`). Logs from any other contract are rejected.
+- **Warnings** (stale/failed sources, blocked drops, OFAC cross-check mismatch) are written to `manifest.json` → `warnings` and shown above the source list.
 
 ---
 
@@ -187,7 +197,8 @@ The **Sync Feeds** button in the UI does the same thing as the first command. Th
 | Provider | Ethereum mainnet via **Tenderly's free public RPC gateway**, reading Tether's USDT contract `0xdAC17F958D2ee523a2206206994597C13D831ec7` |
 | RPC URLs | `https://gateway.tenderly.co/public/mainnet` (primary), `https://mainnet.gateway.tenderly.co` (fallback). Override with env `ETH_RPC_URL` |
 | Docs | https://docs.tenderly.co/node · contract: https://etherscan.io/token/0xdAC17F958D2ee523a2206206994597C13D831ec7 |
-| Method | `eth_getLogs` from the deploy block (4,634,748) to the head, in 2M-block chunks. Ranges are split automatically if the RPC refuses |
+| Method | **Incremental.** The first run, and a weekly safety rescan, read `eth_getLogs` from the deploy block (4,634,748) in 2M-block chunks; only Tenderly-class providers accept that. Every other run reads only the blocks since `notes.lastBlock` in the snapshot, staying 12 blocks behind the head for reorg safety |
+| Failover | Each block range is tried on providers in order: `ETH_RPC_URL` → Tenderly public (×2) → PublicNode (5k blocks) → MEV Blocker (5k) → dRPC (50). If the weekly full rescan can't run, the sync falls back to incremental. Tested 2026-10-28 with Tenderly blocked: PublicNode and MEV Blocker served the sync |
 | Events | `AddedBlackList(address)` `0x42e16015…19dc`, `RemovedBlackList(address)` `0xd7e9ec6e…470c`, `DestroyedBlackFunds(address,uint256)` `0x61e6e66b…98c6` |
 | Logic | An address is frozen if its **latest** Added/Removed event is `AddedBlackList`. `fundsDestroyed` is recorded in `details` |
 | Pricing | Free, no key |
@@ -285,18 +296,31 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
   "tier": 1,                          // best (lowest) tier across sources
   "confidence": 100,                  // highest confidence across sources
   "entities": ["GARANTEX EUROPE OU", "…"],
-  "sources": [ { "sourceId", "authority", "jurisdiction", "category", "basis", "confidence",
-                 "entity", "programs", "reference", "listedAt", "details" } ],
-  "firstSeen": "ISO time (kept across runs)",
-  "lastSeen":  "ISO time of this run"
+  "sources": [ { "sourceId", "authority", "jurisdiction", "tier", "category", "basis", "confidence",
+                 "entity", "programs", "reference", "listedAt", "details",
+                 "status",            // "active" | "removed" (the publisher no longer lists it)
+                 "removedAt" } ],     // ISO time of the run that first saw it gone, else null
+  "status":     "active",             // "active" | "delisted" (no source lists it any more)
+  "firstSeen":  "ISO time (kept across runs)",
+  "lastSeen":   "ISO time of the last run that saw it listed",
+  "delistedAt": null,                 // ISO time it became delisted
+  "relistedAt": null                  // ISO time it was listed again after being delisted
 }
 ```
+
+### Wallets are never deleted
+When a publisher drops an address, the next sync keeps it: that source's record gets `status: "removed"` + `removedAt`. If no source lists the address any more, the whole entry becomes `status: "delisted"` + `delistedAt`, and keeps the category / entity / programs it was listed under. If it is listed again, it returns to `active` with `relistedAt` set.
+
+- **Screening uses only active sources.** `lookupAddress()` drops removed source records and returns nothing for delisted addresses; `lookupAddressHistory()` returns the full entry.
+- **Directory:** a *Status* filter (All / Active / Delisted), a *Delisted* badge, removed sources struck through, and a *Removed* date column in the details.
+- **Changelog:** each run records `added`, `delisted` and `relisted` keys.
+- The shrink guard (§2) still applies first, so a broken parser can't mark hundreds of wallets delisted by mistake.
 
 ### Rules applied during normalization
 - **Validation:** TRON addresses must pass the base58check checksum, and EVM addresses must be `0x` plus 40 hex characters. Anything else (BTC, `bnb1…`, phone numbers, typos) is rejected and counted in `stats.rejected`.
 - **EVM mirroring (sanctions tiers only):** the same private key controls an EVM address on every EVM chain, so a sanctioned address is recorded on **both** Ethereum and BSC. The chain the publisher named is `basis: "listed"`. The other is `basis: "evm-mirror"`, with **confidence −10**. If no chain is named (e.g. `USDT: 0x…`), Ethereum counts as listed.
 - **No mirroring** for Tether freezes, which apply to one specific contract, or for OSINT lists, which are Ethereum-specific.
-- **Failure handling:** if a source fails, its previous snapshot is kept and marked `stale`, so one outage never removes addresses.
+- **Failure handling:** if a source fails, times out, or shrinks past its limit, its previous snapshot is kept and marked `stale`, so one outage or parser break never removes addresses (see *Consistency guarantees* in §2).
 
 ---
 
@@ -304,8 +328,10 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 
 | Variable | Used by | Effect |
 |---|---|---|
-| `ETH_RPC_URL` | `tether-usdt-eth` | Try your own Ethereum RPC first, before Tenderly |
-| `TRONSCAN_API_KEY` | `tether-usdt-tron` | Sent as `TRON-PRO-API-KEY` for higher TronScan limits |
+| `ETH_RPC_URL` | `tether-usdt-eth` | Your own Ethereum RPC URL (key inside the URL, e.g. a Tenderly Node RPC from https://dashboard.tenderly.co), tried before the free public nodes |
+| `ETH_RPC_MAX_RANGE` | `tether-usdt-eth` | Largest `eth_getLogs` block range your `ETH_RPC_URL` accepts (default 2,000,000). Lower it for providers like Alchemy or Infura |
+| `TRONSCAN_API_KEY` | `tether-usdt-tron` | Sent as `TRON-PRO-API-KEY` for higher TronScan limits. **TronScan keys are separate from TronGrid keys** |
+| `TRONGRID_API_KEY` | Screening: live TRON freeze check ([trongridClient.js](src/lib/tron/trongridClient.js)) | Sent as `TRON-PRO-API-KEY`, so calls count against your TronGrid account and show in its dashboard. Without it calls are anonymous and rate-limited |
 
 ---
 
@@ -332,7 +358,10 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
      tier: 1, confidence: 100, category: "SANCTIONS",
      license: "…", homepage: "https://…",
      mirror: true,                       // mirror EVM addresses to ETH+BSC?
-     async collect() {
+     timeoutMs: 4 * 60 * 1000,           // optional, default 4 min
+     maxShrink: 0.1,                     // optional, overrides the tier's shrink limit
+     async collect({ previous, progress }) {
+       // Throw if the download doesn't look like the expected format — never return [] for that.
        return { items: [{ address, statedChain, entity, programs, reference, listedAt }], sourceDate, notes };
      },
    };
@@ -350,6 +379,8 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 |---|---|---|
 | `il-nbctf` fails with "anti-forgery token not found" | The NBCTF site changed its page layout or URL | Open the site in a browser, find the crypto export form, and update `SEARCH_PAGE` / form fields in `ilNbctf.js` |
 | `tether-usdt-eth` fails with a range or limit error on every RPC | Tenderly changed its free limits | Set `ETH_RPC_URL` to another archive RPC, or lower `CHUNK` in `tetherEth.js` |
-| `tether-usdt-tron` says "pagination incomplete" | TronScan rate-limited mid-run | Re-run that source, or set `TRONSCAN_API_KEY` |
+| `tether-usdt-tron` says "blacklist incomplete after 3 attempts" | TronScan rate-limited, or the list kept changing mid-read | Re-run that source, or set `TRONSCAN_API_KEY` |
+| A warning says "record count fell from X to Y" | The shrink guard blocked a big drop | Compare `sources/<id>.rejected.json` with the publisher. If the delisting is real, click **Accept new data** (or `--accept-shrink=<id>`); if not, the parser needs fixing |
+| "another collection is already running" | A sync is in progress (UI or CLI) | Wait for it; a lock from a crashed run is taken over automatically after the process is gone |
 | `crossCheck.ofac` is not empty | The OFAC XML parser and 0xB10C disagree | Check the listed addresses in the SDN search. Either OFAC added a new asset type (update `RELEVANT_ASSETS`) or the XML structure changed |
 | A source shows `stale` in the UI (amber dot) | Its last fetch failed, so the previous data is in use | See `lastError` in `data/intel/manifest.json` |

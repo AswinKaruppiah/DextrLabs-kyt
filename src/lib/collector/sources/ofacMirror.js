@@ -31,6 +31,7 @@ export const ofacMirror = {
         if (/HTTP 404/.test(err.message)) continue; // asset not (yet) present in the repo
         throw err;
       }
+      if (!Array.isArray(list)) throw new Error(`0xB10C ${asset} list is not a JSON array (format changed?)`);
       for (const address of list) {
         items.push({
           address,
@@ -41,6 +42,7 @@ export const ofacMirror = {
         });
       }
     }
+    if (!items.length) throw new Error("0xB10C lists are all empty or missing");
     return { items };
   },
 };

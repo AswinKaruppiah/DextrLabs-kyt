@@ -1,26 +1,29 @@
-import { NextResponse } from "next/server";
-import { runCollection } from "@/lib/collector/run";
-import { invalidateIntelCache } from "@/lib/collector/store";
+import { NextResponse, connection } from "next/server";
+import { getSyncJob, startSync } from "@/lib/collector/syncJob";
 
-// A full collection pulls ~100 MB from 12 feeds and takes ~1.5 minutes.
-export const maxDuration = 300;
-
-/** POST /api/kyt/intel/sync — re-run every collector source and rebuild data/intel. */
-export async function POST() {
+/**
+ * POST /api/kyt/intel/sync — start a background collection (or return the one already running).
+ * Body (optional JSON):
+ *   - only:         source ids to re-collect; the rest are merged from their last snapshot
+ *   - acceptShrink: source ids whose large record-count drop should be accepted
+ * Responds 202 with the job; poll GET for progress.
+ */
+export async function POST(request) {
+  let body = {};
   try {
-    const manifest = await runCollection({ log: (line) => console.log("[IntelSync]" + line) });
-    invalidateIntelCache();
-    return NextResponse.json({
-      success: true,
-      runAt: manifest.runAt,
-      totals: manifest.totals,
-      sources: manifest.sources.map((s) => ({ id: s.id, status: s.status, records: s.records, lastError: s.lastError })),
-    });
-  } catch (error) {
-    console.error("[IntelSync] error:", error);
-    return NextResponse.json(
-      { success: false, error: "Collection failed: " + error.message },
-      { status: 500 },
-    );
-  }
+    body = await request.json();
+  } catch {}
+  const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : null);
+
+  const { started, job } = startSync({
+    only: list(body.only)?.length ? list(body.only) : null,
+    acceptShrink: list(body.acceptShrink) || [],
+  });
+  return NextResponse.json({ success: true, started, job }, { status: 202 });
+}
+
+/** GET /api/kyt/intel/sync — the running sync job, or the last finished one. */
+export async function GET() {
+  await connection(); // in-memory job state: never prerender
+  return NextResponse.json({ success: true, job: getSyncJob() });
 }

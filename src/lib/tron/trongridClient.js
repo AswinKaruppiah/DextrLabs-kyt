@@ -3,6 +3,9 @@ import { USDT_TRON_CONTRACT } from "./tronUtils";
 // Public TRON RPC Gateway & Contract Hex
 const TRONGRID_HOST = process.env.TRONGRID_HOST;
 const TRON_USDT_HEX = process.env.TRON_USDT_CONTRACT_HEX;
+// Without this header TronGrid treats calls as anonymous: tight rate limits, and they
+// don't show up in the TronGrid dashboard.
+const TRONGRID_API_KEY = process.env.TRONGRID_API_KEY;
 
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -59,7 +62,10 @@ export async function checkLiveTetherBlacklistOnChain(base58Address) {
 
     const response = await fetch(`${TRONGRID_HOST}/wallet/triggerconstantcontract`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(TRONGRID_API_KEY ? { "TRON-PRO-API-KEY": TRONGRID_API_KEY } : {}),
+      },
       body: JSON.stringify({
         owner_address: "410000000000000000000000000000000000000000",
         contract_address: TRON_USDT_HEX,

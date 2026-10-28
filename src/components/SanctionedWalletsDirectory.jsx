@@ -46,7 +46,22 @@ const CATEGORY_BADGES = {
   SCAM_PHISHING: "bg-yellow-900/30 text-yellow-300 border-yellow-500/40",
 };
 
+const LISTING_STATUSES = [
+  { id: "ALL", label: "All" },
+  { id: "active", label: "Active" },
+  { id: "delisted", label: "Delisted" },
+];
+
 const STATUS_DOT = { ok: "bg-emerald-400", stale: "bg-amber-400", failed: "bg-red-500" };
+
+const SYNC_POLL_MS = 2000;
+const JOB_STATUS = {
+  pending: { icon: "·", className: "text-slate-500" },
+  running: { icon: "⏳", className: "text-cyan-300" },
+  ok: { icon: "✓", className: "text-emerald-400" },
+  stale: { icon: "!", className: "text-amber-400" },
+  failed: { icon: "✕", className: "text-red-400" },
+};
 
 const sourceLabel = (id) => SOURCE_LABELS[id] || id;
 const categoryLabel = (id) => CATEGORIES.find((c) => c.id === id)?.label || id;
@@ -74,18 +89,21 @@ export default function SanctionedWalletsDirectory() {
   const [totalCount, setTotalCount] = useState(0);
   const [filteredCount, setFilteredCount] = useState(0);
   const [generatedAt, setGeneratedAt] = useState(null);
-  const [facets, setFacets] = useState({ chain: {}, category: {}, source: {} });
+  const [facets, setFacets] = useState({ chain: {}, category: {}, source: {}, status: {} });
   const [sources, setSources] = useState([]);
   const [loadedKey, setLoadedKey] = useState(null);
   const [reloadTick, setReloadTick] = useState(0);
-  const [syncing, setSyncing] = useState(false);
+  const [warnings, setWarnings] = useState([]);
+  const [syncJob, setSyncJob] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
+  const syncing = syncJob?.status === "running";
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [chainFilter, setChainFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [copiedAddress, setCopiedAddress] = useState(null);
@@ -106,6 +124,7 @@ export default function SanctionedWalletsDirectory() {
     chain: chainFilter,
     category: categoryFilter,
     source: sourceFilter,
+    status: statusFilter,
     search,
   }).toString();
   const requestKey = `${query}#${reloadTick}`;
@@ -122,8 +141,9 @@ export default function SanctionedWalletsDirectory() {
           setTotalCount(data.totalCount || 0);
           setFilteredCount(data.filteredCount || 0);
           setGeneratedAt(data.generatedAt || null);
-          setFacets(data.facets || { chain: {}, category: {}, source: {} });
+          setFacets(data.facets || { chain: {}, category: {}, source: {}, status: {} });
           setSources(data.sources || []);
+          setWarnings(data.warnings || []);
         }
       })
       .catch((err) => console.error("Failed to load intel directory:", err))
@@ -138,29 +158,58 @@ export default function SanctionedWalletsDirectory() {
 
   const reload = () => setReloadTick((t) => t + 1);
 
-  const handleSyncNow = async () => {
-    setSyncing(true);
+  // Pick up a sync that is already running (started before a page refresh, or in another tab).
+  useEffect(() => {
+    fetch("/api/kyt/intel/sync")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.job?.status === "running") setSyncJob(data.job);
+      })
+      .catch(() => {});
+  }, []);
+
+  // While a sync runs, poll its progress; when it ends, summarise and reload the table.
+  useEffect(() => {
+    if (!syncing) return;
+    const id = setInterval(async () => {
+      try {
+        const data = await (await fetch("/api/kyt/intel/sync")).json();
+        if (!data.job) return;
+        setSyncJob(data.job);
+        if (data.job.status === "running") return;
+        if (data.job.status === "failed") {
+          setSyncResult({ ok: false, text: "Sync failed: " + data.job.error });
+        } else {
+          const { totals, warnings: w } = data.job.result;
+          setSyncResult({
+            ok: w.length === 0,
+            text:
+              `Collected ${totals.active.toLocaleString()} active addresses ` +
+              `(+${totals.added} new, ${totals.newlyDelisted} delisted since last run)` +
+              (w.length ? ` — ${w.length} warning(s), see below` : ""),
+          });
+        }
+        reload();
+      } catch {
+        // Transient network error: keep polling.
+      }
+    }, SYNC_POLL_MS);
+    return () => clearInterval(id);
+  }, [syncing]);
+
+  const handleSyncNow = async (body = {}) => {
     setSyncResult(null);
     try {
-      const res = await fetch("/api/kyt/intel/sync", { method: "POST" });
+      const res = await fetch("/api/kyt/intel/sync", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
-      if (data.success) {
-        const notFresh = data.sources.filter((s) => s.status !== "ok");
-        setSyncResult({
-          ok: notFresh.length === 0,
-          text:
-            `Collected ${data.totals.entries.toLocaleString()} addresses ` +
-            `(+${data.totals.added} / -${data.totals.removed} since last run)` +
-            (notFresh.length ? ` — ${notFresh.length} feed(s) kept previous data: ${notFresh.map((s) => sourceLabel(s.id)).join(", ")}` : ""),
-        });
-        reload();
-      } else {
-        setSyncResult({ ok: false, text: data.error || "Collection failed" });
-      }
+      if (data.job) setSyncJob(data.job);
+      else setSyncResult({ ok: false, text: data.error || "Could not start sync" });
     } catch (err) {
-      setSyncResult({ ok: false, text: "Collection request failed: " + err.message });
-    } finally {
-      setSyncing(false);
+      setSyncResult({ ok: false, text: "Sync request failed: " + err.message });
     }
   };
 
@@ -207,13 +256,13 @@ export default function SanctionedWalletsDirectory() {
             </span>
           )}
           <button
-            onClick={handleSyncNow}
+            onClick={() => handleSyncNow()}
             disabled={syncing}
             className="px-3.5 py-1.5 rounded-xl border border-slate-700 hover:border-slate-600 bg-slate-800/80 hover:bg-slate-800 text-slate-200 text-xs font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
             title="Re-download every source feed (takes about 1–2 minutes)"
           >
             <span className={syncing ? "animate-spin" : ""}>🔄</span>
-            {syncing ? "Collecting feeds (~90s)..." : "Sync Feeds"}
+            {syncing ? "Collecting feeds..." : "Sync Feeds"}
           </button>
         </div>
       </div>
@@ -230,6 +279,60 @@ export default function SanctionedWalletsDirectory() {
           <button onClick={() => setSyncResult(null)} className="hover:text-white ml-2">
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Live progress of the running sync */}
+      {syncing && (
+        <div className="p-3 rounded-xl border border-cyan-500/30 bg-cyan-950/30 text-[11px] space-y-2">
+          <div className="text-cyan-300 font-semibold">
+            Sync in progress — started {formatDateTime(syncJob.startedAt)}. You can leave this page; it keeps running.
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(syncJob.sources).map(([id, s]) => {
+              const look = JOB_STATUS[s.status] || JOB_STATUS.pending;
+              return (
+                <span
+                  key={id}
+                  title={s.error || ""}
+                  className="px-2 py-1 rounded-lg border border-slate-800 bg-slate-950 flex items-center gap-1.5 text-slate-300"
+                >
+                  <span className={look.className}>{look.icon}</span>
+                  {sourceLabel(id)}
+                  {s.status === "running" && s.detail?.total && (
+                    <span className="font-mono text-slate-500">
+                      {s.detail.done.toLocaleString()}/{s.detail.total.toLocaleString()}
+                    </span>
+                  )}
+                  {s.records !== null && s.status !== "running" && (
+                    <span className="font-mono text-slate-500">{s.records.toLocaleString()}</span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Problems from the last collection: stale feeds, blocked drops, OFAC cross-check */}
+      {!syncing && warnings.length > 0 && (
+        <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-950/30 text-[11px] space-y-1.5">
+          <div className="text-amber-300 font-semibold">Last collection warnings</div>
+          {warnings.map((w, i) => (
+            <div key={`${w.sourceId}-${i}`} className="flex flex-wrap items-center gap-2 text-amber-200/90">
+              <span className="font-semibold text-amber-300">{sourceLabel(w.sourceId)}:</span>
+              <span className="flex-1 min-w-0">{w.message}</span>
+              {w.kind === "shrink-blocked" && (
+                <button
+                  onClick={() => handleSyncNow({ only: [w.sourceId], acceptShrink: [w.sourceId] })}
+                  className="px-2 py-0.5 rounded-md border border-amber-500/50 hover:bg-amber-500/20 text-amber-200"
+                  title="Re-collect this feed and accept the smaller list as correct"
+                >
+                  Accept new data
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -310,6 +413,25 @@ export default function SanctionedWalletsDirectory() {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <span className="text-[11px] font-semibold text-slate-400 px-2 uppercase tracking-wider">Status:</span>
+            {LISTING_STATUSES.map((st) => (
+              <button
+                key={st.id}
+                onClick={() => selectFilter(setStatusFilter)(st.id)}
+                title={st.id === "delisted" ? "No longer listed by any source; kept for history, not used in screening" : undefined}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                  statusFilter === st.id ? "bg-slate-800 text-white shadow font-bold" : "text-slate-400 hover:text-white"
+                }`}
+              >
+                {st.label}
+                {st.id !== "ALL" && (
+                  <span className="ml-1 font-mono text-slate-500">{(facets.status?.[st.id] || 0).toLocaleString()}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
             <span className="text-[11px] font-semibold text-slate-400 px-2 uppercase tracking-wider">Risk:</span>
             {CATEGORIES.map((c) => (
               <button
@@ -356,14 +478,18 @@ export default function SanctionedWalletsDirectory() {
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
               {items.map((item) => {
+                const isDelisted = item.status === "delisted";
                 const mirroredOnly = item.sources.every((s) => s.basis === "evm-mirror");
                 const sourceIds = [...new Set(item.sources.map((s) => s.sourceId))];
+                const removedIds = new Set(
+                  sourceIds.filter((id) => item.sources.every((s) => s.sourceId !== id || s.status === "removed")),
+                );
                 const programs = [...new Set(item.sources.flatMap((s) => s.programs || []))];
                 const expanded = expandedKey === item.key;
                 return (
                   <Fragment key={item.key}>
                     <tr
-                      className="hover:bg-slate-800/40 transition-colors cursor-pointer"
+                      className={`hover:bg-slate-800/40 transition-colors cursor-pointer ${isDelisted ? "opacity-60" : ""}`}
                       onClick={() => setExpandedKey(expanded ? null : item.key)}
                     >
                       <td className="py-3 px-4 whitespace-nowrap">
@@ -425,12 +551,24 @@ export default function SanctionedWalletsDirectory() {
                         <span className="block mt-1 text-[10px] text-slate-500">
                           Tier {item.tier} · {item.confidence}% conf.
                         </span>
+                        {isDelisted && (
+                          <span
+                            className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold border bg-slate-800 text-slate-300 border-slate-600"
+                            title="No longer listed by any source. Kept for history; not used in screening."
+                          >
+                            Delisted {item.delistedAt?.slice(0, 10)}
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-3 px-4">
                         <div className="flex flex-wrap gap-1">
                           {sourceIds.map((id) => (
-                            <span key={id} className={`px-2 py-0.5 rounded text-[10px] font-bold border ${SOURCE_BADGES[id] || OSINT_BADGE}`}>
+                            <span
+                              key={id}
+                              title={removedIds.has(id) ? "Removed by this source" : undefined}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${SOURCE_BADGES[id] || OSINT_BADGE} ${removedIds.has(id) ? "line-through opacity-60" : ""}`}
+                            >
                               {sourceLabel(id)}
                             </span>
                           ))}
@@ -447,6 +585,8 @@ export default function SanctionedWalletsDirectory() {
                             <div className="text-slate-400">
                               <span className="font-mono text-slate-300">{item.address}</span> · first seen{" "}
                               {formatDateTime(item.firstSeen)}
+                              {isDelisted && <> · delisted {formatDateTime(item.delistedAt)}</>}
+                              {item.relistedAt && <> · re-listed {formatDateTime(item.relistedAt)}</>}
                             </div>
                             <table className="w-full">
                               <thead className="text-slate-500 text-[10px] uppercase tracking-wider">
@@ -456,12 +596,13 @@ export default function SanctionedWalletsDirectory() {
                                   <th className="text-left py-1 pr-3">Entity / Program</th>
                                   <th className="text-left py-1 pr-3">Basis</th>
                                   <th className="text-left py-1 pr-3">Listed</th>
+                                  <th className="text-left py-1 pr-3">Removed</th>
                                   <th className="text-left py-1">Reference</th>
                                 </tr>
                               </thead>
                               <tbody className="text-slate-300">
                                 {item.sources.map((s, i) => (
-                                  <tr key={i} className="align-top">
+                                  <tr key={i} className={`align-top ${s.status === "removed" ? "text-slate-500 line-through" : ""}`}>
                                     <td className="py-1 pr-3 whitespace-nowrap">{sourceLabel(s.sourceId)}</td>
                                     <td className="py-1 pr-3">{s.authority}</td>
                                     <td className="py-1 pr-3">
@@ -472,6 +613,7 @@ export default function SanctionedWalletsDirectory() {
                                       {s.basis === "evm-mirror" ? "EVM mirror" : "Listed"} · {s.confidence}%
                                     </td>
                                     <td className="py-1 pr-3 whitespace-nowrap">{s.listedAt ? s.listedAt.slice(0, 10) : "—"}</td>
+                                    <td className="py-1 pr-3 whitespace-nowrap">{s.removedAt ? s.removedAt.slice(0, 10) : "—"}</td>
                                     <td className="py-1">
                                       {s.reference?.url ? (
                                         <a

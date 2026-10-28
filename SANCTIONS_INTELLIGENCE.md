@@ -81,7 +81,10 @@ Query: `search`, `chain` (`ALL|TRON|ETHEREUM|BSC`), `category` (`ALL|SANCTIONS|I
 Returns the items, counts per filter, and the health of each source.
 
 ### `POST /api/kyt/intel/sync`
-Re-runs every collector source (~90 s) and rebuilds `data/intel/`.
+Starts a background collection of every source and returns `202` with the job right away; if one is already running, returns that job (`started: false`). Optional JSON body: `only` (source ids) and `acceptShrink` (source ids whose blocked drop should be accepted).
+
+### `GET /api/kyt/intel/sync`
+The running job (per-source status and progress) or the last finished one, with totals and warnings. See *Consistency guarantees* in [DATA_SOURCES.md](DATA_SOURCES.md).
 
 ---
 

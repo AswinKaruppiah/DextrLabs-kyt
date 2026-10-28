@@ -49,8 +49,20 @@ export function invalidateIntelCache() {
   cache = { mtimeMs: 0, data: null, manifest: null, byKey: new Map() };
 }
 
-/** Exact lookup of one address on one chain ("TRON" | "ETHEREUM" | "BSC"). null if not listed. */
+/**
+ * Exact lookup of one address on one chain ("TRON" | "ETHEREUM" | "BSC") for screening.
+ * Only sources that still list the address are returned; null if none do (never listed, or
+ * delisted by every publisher). Use lookupAddressHistory for removed listings too.
+ */
 export function lookupAddress(chain, address) {
+  const entry = lookupAddressHistory(chain, address);
+  if (!entry) return null;
+  const sources = entry.sources.filter((s) => s.status !== "removed");
+  return sources.length ? { ...entry, sources } : null;
+}
+
+/** The full stored entry, including delisted addresses and removed source listings. */
+export function lookupAddressHistory(chain, address) {
   if (!chain || !address) return null;
   const entry = load().byKey.get(addressKey(chain, address.trim()));
   if (!entry) return null;
@@ -74,6 +86,7 @@ export function queryIntel({
   chain = "ALL",
   category = "ALL",
   source = "ALL",
+  status = "ALL",
   page = 1,
   limit = 50,
 } = {}) {
@@ -85,14 +98,21 @@ export function queryIntel({
     chain: (e) => chain === "ALL" || e.chain === chain,
     category: (e) => category === "ALL" || e.categories.includes(category),
     source: (e) => source === "ALL" || e.sources.some((s) => s.sourceId === source),
+    // Entries written before delisting was tracked have no status: they are active.
+    status: (e) => status === "ALL" || (e.status || "active") === status,
   };
   const filterExcept = (skip) =>
     data.entries.filter((e) => Object.entries(matches).every(([k, fn]) => k === skip || fn(e)));
 
   const filtered = filterExcept(null);
-  // Highest-severity first: tier, then confidence, then number of corroborating sources.
+  // Active before delisted, then highest severity: tier, confidence, corroborating sources.
+  const delisted = (e) => (e.status === "delisted" ? 1 : 0);
   filtered.sort(
-    (a, b) => a.tier - b.tier || b.confidence - a.confidence || b.sources.length - a.sources.length,
+    (a, b) =>
+      delisted(a) - delisted(b) ||
+      a.tier - b.tier ||
+      b.confidence - a.confidence ||
+      b.sources.length - a.sources.length,
   );
 
   const offset = (Math.max(1, page) - 1) * limit;
@@ -108,6 +128,7 @@ export function queryIntel({
       chain: count(filterExcept("chain"), (e) => e.chain),
       category: count(filterExcept("category"), (e) => e.categories),
       source: count(filterExcept("source"), (e) => [...new Set(e.sources.map((s) => s.sourceId))]),
+      status: count(filterExcept("status"), (e) => e.status || "active"),
     },
     sources: (manifest?.sources || []).map((s) => ({
       id: s.id,
@@ -123,6 +144,7 @@ export function queryIntel({
       lastError: s.lastError,
       license: s.license,
     })),
+    warnings: manifest?.warnings || [],
     items,
   };
 }

@@ -6,6 +6,7 @@ const ORIGIN = "https://matal.mod.gov.il";
 // "חיפוש-סנקציות" (sanctions search) — the page that issues the anti-forgery token.
 const SEARCH_PAGE = `${ORIGIN}/%D7%97%D7%99%D7%A4%D7%95%D7%A9-%D7%A1%D7%A0%D7%A7%D7%A6%D7%99%D7%95%D7%AA/`;
 const EXPORT_URL = `${ORIGIN}/sanctions/export`;
+const HOMEPAGE = `${SEARCH_PAGE}#cryptocurrencyseizures`;
 
 // Multi-value cells are "Name: X" entries separated by dashed lines.
 const cellValues = (cell) =>
@@ -13,6 +14,44 @@ const cellValues = (cell) =>
     .split(/\n-{5,}\n/)
     .map((part) => part.replace(/^\s*Name:\s*/, "").trim())
     .filter(Boolean);
+
+const REQUIRED_COLUMNS = ["Name en", "Order Number", "Order Type", "Assets", "Designated Organizations", "Is Canceled"];
+
+/** NBCTF cryptocurrency-seizure CSV export -> items. Throws if the expected columns are gone. */
+function parseNbctfCsv(text) {
+  const orders = csvToObjects(parseCsv(text));
+  if (!orders.length) throw new Error("NBCTF export has no orders (format changed?)");
+  const missing = REQUIRED_COLUMNS.filter((c) => !(c in orders[0]));
+  if (missing.length) throw new Error(`NBCTF export is missing column(s) ${missing.join(", ")} (format changed?)`);
+
+  const items = [];
+  let canceledOrders = 0;
+  let nonAddressAssets = 0;
+  for (const order of orders) {
+    if (order["Is Canceled"] === "True") {
+      canceledOrders++;
+      continue;
+    }
+    const orgs = cellValues(order["Designated Organizations"]);
+    for (const asset of cellValues(order["Assets"])) {
+      // Assets also include phone-number-keyed payment accounts; keep wallets only.
+      if (!addressFamily(asset)) {
+        nonAddressAssets++;
+        continue;
+      }
+      items.push({
+        address: asset,
+        statedChain: null,
+        entity: orgs.join("; ") || order["Name en"],
+        programs: [`${order["Order Type"]} ${order["Order Number"]}`.trim()],
+        reference: { id: order["Name en"] || order["Order Number"], url: HOMEPAGE },
+        listedAt: order["Order Date"] || null,
+        details: { validUntil: order["Validity Date"] || null },
+      });
+    }
+  }
+  return { items, notes: { orders: orders.length, canceledOrders, nonAddressAssets } };
+}
 
 export const ilNbctf = {
   id: "il-nbctf",
@@ -23,7 +62,7 @@ export const ilNbctf = {
   confidence: 95,
   category: "SANCTIONS",
   license: "Israeli government publication",
-  homepage: `${SEARCH_PAGE}#cryptocurrencyseizures`,
+  homepage: HOMEPAGE,
   mirror: true,
 
   async collect() {
@@ -57,34 +96,6 @@ export const ilNbctf = {
     if (!/csv/i.test(res.headers.get("content-type") || "")) {
       throw new Error(`NBCTF export returned ${res.headers.get("content-type")}, expected CSV`);
     }
-    const orders = csvToObjects(parseCsv(await res.text()));
-
-    const items = [];
-    let canceledOrders = 0;
-    let nonAddressAssets = 0;
-    for (const order of orders) {
-      if (order["Is Canceled"] === "True") {
-        canceledOrders++;
-        continue;
-      }
-      const orgs = cellValues(order["Designated Organizations"]);
-      for (const asset of cellValues(order["Assets"])) {
-        // Assets also include phone-number-keyed payment accounts; keep wallets only.
-        if (!addressFamily(asset)) {
-          nonAddressAssets++;
-          continue;
-        }
-        items.push({
-          address: asset,
-          statedChain: null,
-          entity: orgs.join("; ") || order["Name en"],
-          programs: [`${order["Order Type"]} ${order["Order Number"]}`.trim()],
-          reference: { id: order["Name en"] || order["Order Number"], url: this.homepage },
-          listedAt: order["Order Date"] || null,
-          details: { validUntil: order["Validity Date"] || null },
-        });
-      }
-    }
-    return { items, notes: { orders: orders.length, canceledOrders, nonAddressAssets } };
+    return parseNbctfCsv(await res.text());
   },
 };
