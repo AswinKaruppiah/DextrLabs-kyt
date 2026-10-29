@@ -2,7 +2,8 @@ import { fetchJson, fetchText } from "../util/http.js";
 import { CHAINS } from "../util/address.js";
 import { csvToObjects, parseCsv } from "../util/text.js";
 
-// Community / security-vendor lists. Ethereum-only, never mirrored, never blocking on their own.
+// Community / security-vendor lists (Ethereum, plus eth-labels' BSC labels). Never mirrored,
+// never blocking on their own.
 const OSINT_DEFAULTS = {
   jurisdiction: "OSINT",
   tier: 4,
@@ -79,6 +80,52 @@ export const ethLabels = {
         reference: { id: "etherscan-phish-hack", url: `https://etherscan.io/address/${row.address}` },
       })),
     };
+  },
+};
+
+// eth-labels' maintained export (branch v1) covers more chains and newer incident labels than the
+// mainnet phish-hack file above. BSC "heist" labels are exploiters; "*-exploit" labels name the
+// wallets behind a specific Ethereum incident (Bybit, WazirX, ...).
+const ETH_LABELS_CSV = `${RAW}/dawsbot/eth-labels/v1/data/csv/accounts.csv`;
+const EXPLORERS = { [CHAINS.ETHEREUM]: "https://etherscan.io", [CHAINS.BSC]: "https://bscscan.com" };
+
+function exploitLabel(chainId, label) {
+  if (chainId === "56" && label === "heist") return { chain: CHAINS.BSC, category: "HACK_EXPLOIT" };
+  if (chainId === "56" && label === "scam") return { chain: CHAINS.BSC, category: "SCAM_PHISHING" };
+  if (chainId === "1" && label.endsWith("-exploit")) return { chain: CHAINS.ETHEREUM, category: "HACK_EXPLOIT" };
+  return null;
+}
+
+export const ethLabelsExploits = {
+  ...OSINT_DEFAULTS,
+  id: "eth-labels-exploits",
+  name: "eth-labels — BSC heist/scam and Ethereum incident-exploit labels",
+  authority: "dawsbot/eth-labels (Etherscan / BscScan label mirror)",
+  confidence: 70,
+  category: "HACK_EXPLOIT",
+  license: "MIT",
+  homepage: "https://github.com/dawsbot/eth-labels",
+
+  async collect() {
+    const rows = csvToObjects(parseCsv(await fetchText(ETH_LABELS_CSV)));
+    if (!rows.length || !["address", "chainId", "label"].every((c) => c in rows[0])) {
+      throw new Error("eth-labels accounts.csv is missing address/chainId/label columns (format changed?)");
+    }
+    const items = [];
+    for (const row of rows) {
+      const match = exploitLabel(row.chainId, row.label);
+      if (!match) continue;
+      items.push({
+        address: row.address,
+        statedChain: match.chain,
+        category: match.category,
+        entity: row.nameTag || row.label,
+        programs: [row.label],
+        reference: { id: `eth-labels:${row.label}`, url: `${EXPLORERS[match.chain]}/address/${row.address}` },
+      });
+    }
+    if (!items.length) throw new Error("eth-labels accounts.csv has no heist/scam/exploit labels (format changed?)");
+    return { items };
   },
 };
 

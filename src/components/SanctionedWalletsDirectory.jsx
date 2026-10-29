@@ -11,12 +11,19 @@ const SOURCE_LABELS = {
   "uk-sanctions-list": "UK FCDO",
   "un-consolidated": "UN",
   "il-nbctf": "IL NBCTF",
+  "fbi-ic3": "FBI IC3",
   "tether-usdt-tron": "Tether · TRON",
   "tether-usdt-eth": "Tether · ETH",
+  "circle-usdc-eurc-eth": "Circle USDC/EURC",
+  "paxos-usdp-pyusd-eth": "Paxos USDP/PYUSD",
+  "tusd-eth": "TUSD",
+  "judicial-fraud-labels": "Court Judgments",
   scamsniffer: "ScamSniffer",
   "mew-darklist": "MEW Darklist",
   "eth-labels-phish-hack": "Etherscan Phish/Hack",
+  "eth-labels-exploits": "eth-labels Exploits",
   "forta-labelled": "Forta",
+  defihacklabs: "DeFiHackLabs",
 };
 
 const SOURCE_BADGES = {
@@ -26,15 +33,20 @@ const SOURCE_BADGES = {
   "uk-sanctions-list": "bg-purple-500/10 text-purple-400 border-purple-500/30",
   "un-consolidated": "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
   "il-nbctf": "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  "fbi-ic3": "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
   "tether-usdt-tron": "bg-teal-500/10 text-teal-400 border-teal-500/30",
   "tether-usdt-eth": "bg-teal-500/10 text-teal-400 border-teal-500/30",
+  "circle-usdc-eurc-eth": "bg-sky-500/10 text-sky-400 border-sky-500/30",
+  "paxos-usdp-pyusd-eth": "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  "tusd-eth": "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+  "judicial-fraud-labels": "bg-rose-500/10 text-rose-400 border-rose-500/30",
 };
 const OSINT_BADGE = "bg-slate-700/50 text-slate-300 border-slate-600";
 
 const CATEGORIES = [
   { id: "ALL", label: "All" },
   { id: "SANCTIONS", label: "Sanctions" },
-  { id: "ISSUER_FREEZE", label: "Tether Freeze" },
+  { id: "ISSUER_FREEZE", label: "Issuer Freeze" },
   { id: "HACK_EXPLOIT", label: "Hack / Exploit" },
   { id: "SCAM_PHISHING", label: "Scam / Phishing" },
 ];
@@ -226,8 +238,9 @@ export default function SanctionedWalletsDirectory() {
 
   const totalPages = Math.ceil(filteredCount / pageSize) || 1;
   const tierGroups = [
-    { tier: 1, label: "Government sanctions" },
+    { tier: 1, label: "Government" },
     { tier: 2, label: "Issuer freezes" },
+    { tier: 3, label: "Court records" },
     { tier: 4, label: "OSINT" },
   ];
 

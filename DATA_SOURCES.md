@@ -1,10 +1,10 @@
 # Data Sources — Threat Intelligence Collector
 
-This document lists every external service the KYT collector pulls data from: what each one provides, what it costs, where its documentation is, and where the downloaded data ends up on disk.
+This document lists every external service the KYT collector pulls data from: what each one provides, what it costs, where its documentation is, and where the collected data is stored.
 
 > **Scope:** USDT risk addresses on **TRON, Ethereum and BSC** only.
 > **Cost:** every source below is **free**. No paid API, subscription or API key is required.
-> **Last verified:** 2026-10-28. Counts below are from that run.
+> **Last verified:** 2026-10-29. Counts below are from that run.
 
 ---
 
@@ -24,37 +24,75 @@ This document lists every external service the KYT collector pulls data from: wh
 | 10 | `mew-darklist` | MyEtherWallet (GitHub) | 4 | Community darklist | JSON | None | Free | 652 |
 | 11 | `eth-labels-phish-hack` | dawsbot/eth-labels (GitHub) | 4 | Etherscan "Phish / Hack" labels | JSON | None | Free | 5,594 |
 | 12 | `forta-labelled` | Forta Network (GitHub) | 4 | Phishing EOAs + malicious contracts and their deployers | CSV | None | Free | 7,891 |
+| 13 | `fbi-ic3` | FBI IC3 public service announcements | 1 | Addresses the FBI attributes to hacks / laundering (Bybit, DPRK Lazarus) | HTML | None | Free | 51 (×2 with BSC mirror) |
+| 14 | `circle-usdc-eurc-eth` | Ethereum RPC | 2 | Circle USDC + EURC frozen addresses (rebuilt from events) | JSON-RPC logs | None | Free | 667 |
+| 15 | `paxos-usdp-pyusd-eth` | Ethereum RPC | 2 | Paxos USDP + PayPal PYUSD frozen addresses (rebuilt from events) | JSON-RPC logs | None | Free | 166 |
+| 16 | `tusd-eth` | Ethereum RPC | 2 | TrueUSD blacklisted addresses (rebuilt from events) | JSON-RPC logs | None | Free | 4 |
+| 17 | `judicial-fraud-labels` | Mendeley Data (research dataset) | 3 | TRON fraud-platform and money-laundering broker wallets named in court judgments | CSV | None | Free (CC BY 4.0) | 642 |
+| 18 | `eth-labels-exploits` | dawsbot/eth-labels (GitHub, branch v1) | 4 | BSC heist/scam labels + Ethereum incident-exploit labels (Bybit, WazirX, …) | CSV | None | Free | 306 |
+| 19 | `defihacklabs` | SunWeb3Sec/DeFiHackLabs (GitHub) | 4 | Exploit attacker wallets and attack contracts (Ethereum + BSC incidents) | Solidity file headers | None | Free | 914 |
 
 **Tiers**
-- **Tier 1:** government sanctions and seizure orders. Legally binding, so a match blocks.
+- **Tier 1:** government sanctions, seizure orders and law-enforcement attributions. A sanctions match blocks.
 - **Tier 2:** stablecoin issuer freezes. The issuer has acted on the address, so it is high risk.
+- **Tier 3:** court-documented fraud addresses.
 - **Tier 4:** OSINT, community and vendor labels. These raise the risk score but must never block on their own.
-- Tier 3 is reserved for curated sanctioned-entity data, and Tier 5 for community reports such as Chainabuse. Neither is implemented yet.
+- Tier 5 is reserved for community reports such as Chainabuse (not implemented).
 
-**Totals (merged, de-duplicated per chain):** 21,635 entries: 8,080 TRON, 13,416 Ethereum and 139 BSC.
+**Totals (merged, de-duplicated per chain, active):** 24,159 entries: 8,755 TRON, 14,678 Ethereum and 726 BSC.
+
+### 1.1 Price and how often new data arrives
+
+The collector only fetches when a sync runs (the **Sync Feeds** button or `npm run collect:intel`); there is no schedule yet. "How often the publisher adds data" is how often a sync can expect to find something new. Last-change dates were checked on 2026-10-29.
+
+| Source | Price | How often the publisher adds data | Last change seen |
+|---|---|---|---|
+| `ofac-sdn` — US OFAC SDN list | Free | Irregular; crypto designations a few times a month | 2026-10-28 (8 new addresses) |
+| `ofac-0xb10c` — OFAC extract | Free | Daily job; changes only when OFAC adds crypto addresses (≈ 1 day behind OFAC) | 2026-10-29 |
+| `eu-fsf` — EU sanctions | Free | Irregular, with each EU sanctions package; crypto addresses are rare | — |
+| `uk-sanctions-list` — UK FCDO | Free | Irregular, several updates a week; crypto addresses are rare | — |
+| `un-consolidated` — UN | Free | Irregular; no crypto addresses so far | — |
+| `il-nbctf` — Israel seizure orders | Free | New orders several times a month | — |
+| `fbi-ic3` — FBI announcements | Free | One-off notices; a new notice must be added to `fbiIc3.js` by hand | 2025-02-26 |
+| `tether-usdt-tron` — Tether TRON freezes | Free (optional TronScan key) | **Daily** — new freezes most days | 2026-10-29 (+32) |
+| `tether-usdt-eth` — Tether ETH freezes | Free (optional `ETH_RPC_URL`) | **Daily** | 2026-10-29 |
+| `circle-usdc-eurc-eth` — Circle freezes | Free | **Weekly or more** | 2026-10-28 |
+| `paxos-usdp-pyusd-eth` — Paxos freezes | Free | Rare | 2024-12 (USDP), 2024-06 (PYUSD) |
+| `tusd-eth` — TrueUSD freezes | Free | Rare | 2024 |
+| `judicial-fraud-labels` — court judgments | Free (CC BY 4.0, credit required) | Only when the authors publish a new version | v3, 2026-08 |
+| `defihacklabs` — exploit attackers | Free | **Weekly** — new incidents added most days | 2026-10-29 |
+| `eth-labels-exploits` — eth-labels CSV | Free | Every few months | 2026-07-10 |
+| `eth-labels-phish-hack` — eth-labels JSON | Free | **No longer updated** (old branch) | 2022-05-19 |
+| `scamsniffer` — ScamSniffer addresses | Free (GPL-3.0) | **No longer updated** (only domains are maintained now) | 2024-02-28 |
+| `mew-darklist` — MyEtherWallet | Free | **No longer updated** | 2020-11-18 |
+| `forta-labelled` — Forta | Free | **No longer updated** | 2023-01 |
+
+**In short:** Tether (TRON + ETH), Circle and DeFiHackLabs bring new wallets every week or day; government lists change irregularly; four OSINT lists (≈ 16.7k wallets) are frozen in time — their wallets stay in the database but nothing new will come from them.
 
 ---
 
 ## 2. Where the data lives
 
-```
-data/intel/
-├── addresses.json        # MERGED database — one entry per chain:address, with every source that flagged it
-├── manifest.json         # Status of the last run: per-source ok/stale/failed, counts, errors, OFAC cross-check
-├── changelog.jsonl       # One line per run: added / delisted / re-listed address keys (use for re-screening)
-└── sources/
-    ├── ofac-sdn.json             # One snapshot per source: metadata + stats + normalized records
-    ├── ofac-0xb10c.json
-    ├── eu-fsf.json
-    ├── uk-sanctions-list.json
-    ├── un-consolidated.json
-    ├── il-nbctf.json
-    ├── tether-usdt-tron.json
-    ├── tether-usdt-eth.json
-    ├── scamsniffer.json
-    ├── mew-darklist.json
-    ├── eth-labels-phish-hack.json
-    └── forta-labelled.json
+Everything is in **MongoDB Atlas** (`MONGODB_URI`, database `MONGODB_DB`, default `dextrlabs_kyt`). Nothing is written to local disk.
+
+| Collection | Contents |
+|---|---|
+| `intel_wallets` | MERGED database — one document per chain:address (`_id` = key), with every source that flagged it |
+| `intel_sync_runs` | One document per run: `status` (running / done / failed), `startedAt`, `finishedAt`, per-source status + error + notes, totals, warnings, OFAC cross-check. The newest `done` run is the current feed status |
+| `intel_run_wallets` | One document per wallet a run changed: `runId`, `change` (added / delisted / relisted / source-added / source-removed), the wallet's basic info, and the source listings involved |
+| `intel_sync_errors` | One document per source that failed during a run (written the moment it fails), or per run that crashed: when, which source, error type, full message with its underlying cause, stack, and what happened to that source's data |
+
+**Only changed wallets are written.** Each run rebuilds the merged entries in memory, compares each with the stored copy, and upserts only the ones that differ. A run with no changes writes no wallets. Changed wallets get `updatedAt`.
+
+**No local cache.** What used to come from per-source snapshot files is rebuilt from the database at the start of each run: a source's current listings are its active entries in `intel_wallets`, and its status and `notes` (e.g. the Ethereum block reached) come from the last `done` run in `intel_sync_runs`.
+
+Useful queries:
+```js
+db.intel_sync_runs.find().sort({ startedAt: -1 })                       // run history, errors, warnings
+db.intel_run_wallets.find({ runId: ObjectId("…"), change: "added" })     // wallets a run added, with their source
+db.intel_run_wallets.find({ key: "TRON:T…" }).sort({ runAt: -1 })        // change history of one wallet
+db.intel_sync_errors.find().sort({ failedAt: -1 })                       // latest failures
+db.intel_sync_errors.find({ sourceId: "tether-usdt-tron" }).sort({ failedAt: -1 })  // one source's failures
 ```
 
 Raw downloads (XML, CSV, HTML) are **not** stored, only the normalized records. To inspect the raw data, open the source URL from section 3 in a browser.
@@ -65,8 +103,9 @@ Raw downloads (XML, CSV, HTML) are **not** stored, only the normalized records. 
 |---|---|
 | [src/lib/collector/sources/](src/lib/collector/sources/) | One module per source (fetch and parse) |
 | [src/lib/collector/sources/index.js](src/lib/collector/sources/index.js) | Registry of all sources. Add new sources here |
-| [src/lib/collector/run.js](src/lib/collector/run.js) | Runs sources, validates addresses, merges, writes files |
-| [src/lib/collector/store.js](src/lib/collector/store.js) | Read and query layer: `queryIntel()` for the directory API, `lookupAddress(chain, address)` for screening |
+| [src/lib/collector/run.js](src/lib/collector/run.js) | Runs sources, validates addresses, merges, writes changed wallets to MongoDB |
+| [src/lib/collector/db.js](src/lib/collector/db.js) | MongoDB connection (one client per process) and indexes |
+| [src/lib/collector/store.js](src/lib/collector/store.js) | Read and query layer: `queryIntel()` for the directory API (newest first), `lookupAddress(chain, address)` for screening |
 | [src/lib/intelligence/sanctionsRegistry.js](src/lib/intelligence/sanctionsRegistry.js), [tetherBlacklist.js](src/lib/intelligence/tetherBlacklist.js), [entityAttribution.js](src/lib/intelligence/entityAttribution.js) | Screening lookups (sanctions, Tether freeze, OSINT) backed by `lookupAddress` |
 | [src/lib/collector/util/](src/lib/collector/util/) | HTTP retry, address validation (TRON checksum), CSV/XML/text parsing |
 | [scripts/collect-intel.mjs](scripts/collect-intel.mjs) | CLI entry point |
@@ -85,13 +124,14 @@ npm run collect:intel -- --only=eu-fsf --accept-shrink=eu-fsf  # accept a blocke
 The **Sync Feeds** button in the UI does the same thing as the first command, but as a background job: the button returns at once and the page shows each source's progress (`GET /api/kyt/intel/sync`). The run continues if the page is closed or refreshed. The CLI exits with code 1 if any source was not fresh or a drop was blocked.
 
 ### Consistency guarantees
-- **One run at a time.** A lock file (`data/intel/.collect.lock`) is shared by the web app and the CLI. A second click joins the running job; a second CLI run exits with "another collection is already running". A lock left by a crashed process is taken over.
-- **Time limit per source** (default 4 min; TronScan 8 min, Tether ETH 6 min). A source that runs over is cancelled, including its in-flight downloads, and keeps its last good snapshot. The other sources still finish and the database is rebuilt.
-- **Shrink guard.** Each fresh result is compared with the last good snapshot. If the record count drops by more than 10% (sanctions), 5% (Tether freezes) or 30% (OSINT), the new result is parked in `sources/<id>.rejected.json`, the previous data is kept, and a warning with an **Accept new data** button appears in the UI. Accept it only after checking the publisher really delisted the addresses (e.g. OFAC's Tornado Cash delisting).
+- **One run at a time.** A run is recorded in `intel_sync_runs` with `status: "running"`, and a unique index allows only one such document, so it acts as the lock for the web app and the CLI (on any machine). A second click joins the running job; a second CLI run exits with "another collection is already running". A run still "running" after 20 minutes is treated as crashed: it is marked `failed` and taken over.
+- **Time limit per source** (default 4 min; TronScan 8 min, Tether ETH 6 min). A source that runs over is cancelled, including its in-flight downloads, and keeps its current listings. The other sources still finish and the database is rebuilt.
+- **Shrink guard.** Each fresh result is compared with the source's current listings in `intel_wallets`. If the record count drops by more than 10% (sanctions), 5% (Tether freezes) or 30% (OSINT), the new result is discarded, the current listings are kept, and a warning with the counts and an **Accept new data** button (re-runs that source and accepts the drop) appears in the UI. Accept it only after checking the publisher really delisted the addresses (e.g. OFAC's Tornado Cash delisting).
 - **Format checks.** Every parser throws if the publisher's file no longer has the expected structure (missing records, renamed columns), so a format change shows up as `stale` with a reason instead of an empty source.
 - **TronScan completeness.** A pass must read every row TronScan reports; if the list changes mid-read the pass is retried (up to 3 times). Never accepted short.
 - **Ethereum empty results.** Every empty `eth_getLogs` chunk is re-asked of a second node; if that one finds freeze events, its answer is used (`notes.emptyChecks`). Logs from any other contract are rejected.
-- **Warnings** (stale/failed sources, blocked drops, OFAC cross-check mismatch) are written to `manifest.json` → `warnings` and shown above the source list.
+- **Warnings** (stale/failed sources, blocked drops, OFAC cross-check mismatch) are written to the run's `intel_sync_runs` document → `warnings` and shown above the source list.
+- **Wallets before run record.** Changed wallets are written first, then `intel_run_wallets`, and the run is marked `done` last, so the directory's "Collected" time never runs ahead of the data. If a run dies mid-write, the next run compares again and writes whatever is still different.
 
 ---
 
@@ -110,7 +150,7 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Pricing | Free, public domain |
 | Rate limits | None observed |
 | Update frequency | Whenever OFAC publishes, often several times a week |
-| Output | `data/intel/sources/ofac-sdn.json` |
+| Output | `intel_wallets` → `sources.sourceId: "ofac-sdn"` |
 | Reference link per address | `https://sanctionssearch.ofac.treas.gov/Details.aspx?id=<uid>` |
 
 ### 3.2 OFAC addresses, 0xB10C extract (`ofac-0xb10c`)
@@ -123,8 +163,8 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Format | JSON array of addresses, one file per asset (`TRX`, `ETH`, `BSC`, `USDT`, `USDC`, `ARB`) |
 | Pricing | Free, MIT license |
 | Update frequency | Nightly (GitHub Actions at 00:00 UTC) |
-| Why it exists | An independent second parse of OFAC. `manifest.json → crossCheck.ofac` lists any address only one of the two parses found. It should be empty; the 2026-10-28 run had 0 differences. It also serves as a fallback if treasury.gov is down |
-| Output | `data/intel/sources/ofac-0xb10c.json` |
+| Why it exists | An independent second parse of OFAC. `intel_sync_runs → crossCheck.ofac` lists any address only one of the two parses found. It should be empty; the 2026-10-28 run had 0 differences. It also serves as a fallback if treasury.gov is down |
+| Output | `intel_wallets` → `sources.sourceId: "ofac-0xb10c"` |
 
 ### 3.3 EU Consolidated Financial Sanctions List (`eu-fsf`)
 
@@ -135,7 +175,7 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Docs | https://data.europa.eu/data/datasets/consolidated-list-of-persons-groups-and-entities-subject-to-eu-financial-sanctions |
 | Format | XML. **The EU has no wallet field.** Addresses appear in free-text `<remark>` elements, e.g. `Known Garantex blockchain wallet addresses: ETH: 0x… BSC: 0x… TRX: T…`. The chain is taken from the nearest label before each address |
 | Pricing | Free, EU public data (reuse permitted with attribution) |
-| Output | `data/intel/sources/eu-fsf.json` |
+| Output | `intel_wallets` → `sources.sourceId: "eu-fsf"` |
 
 ### 3.4 UK Sanctions List (`uk-sanctions-list`)
 
@@ -148,7 +188,7 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Format | CSV. Line 1 is `Report Date: …`, and the header row is line 2. There is one row per name alias, grouped by `Unique ID`. Addresses are in free text (mainly `Other Information`), e.g. `(1) ETH: 0x… (2) BNB: 0x… (3) USDT: T…` |
 | Pricing | Free, Open Government Licence v3.0 |
 | Note | The old OFSI URL (`ofsistorage.blob.core.windows.net/…/ConList.csv`) now returns 409 *PublicAccessNotPermitted*. Don't use it |
-| Output | `data/intel/sources/uk-sanctions-list.json` |
+| Output | `intel_wallets` → `sources.sourceId: "uk-sanctions-list"` |
 
 ### 3.5 UN Security Council Consolidated List (`un-consolidated`)
 
@@ -160,7 +200,7 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Format | XML (`<INDIVIDUAL>` / `<ENTITY>` blocks) |
 | Pricing | Free |
 | Note | **Contains 0 wallet addresses today.** It is scanned every run so a future designation with an address is picked up automatically |
-| Output | `data/intel/sources/un-consolidated.json` |
+| Output | `intel_wallets` → `sources.sourceId: "un-consolidated"` |
 
 ### 3.6 Israel NBCTF crypto seizure orders (`il-nbctf`)
 
@@ -173,7 +213,7 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Format | CSV, one row per order. The `Assets` column holds `Name: <value>` entries separated by `-------------` lines. Some values are wallet addresses and some are phone-number-keyed payment accounts; only valid TRON/EVM addresses are kept |
 | Pricing | Free, Israeli government publication |
 | Notes | Canceled orders (`Is Canceled = True`) are skipped. Each record keeps the order number (e.g. `FO 02/24`), order date and validity date |
-| Output | `data/intel/sources/il-nbctf.json` |
+| Output | `intel_wallets` → `sources.sourceId: "il-nbctf"` |
 
 ### 3.7 Tether USDT frozen addresses on TRON (`tether-usdt-tron`)
 
@@ -188,7 +228,7 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Limits | `limit` must be between 20 and 100, so a full run is about 81 pages |
 | Coverage | Complete current list, 2020-06 to the present (8,036 reported). The collector fails if it gets less than 95% of `total` |
 | Not used | TronGrid's contract-events API also works, but without a key it allows **1 request/second** and suspends you for 5 s if exceeded. TronScan is simpler and complete |
-| Output | `data/intel/sources/tether-usdt-tron.json` |
+| Output | `intel_wallets` → `sources.sourceId: "tether-usdt-tron"` |
 
 ### 3.8 Tether USDT frozen addresses on Ethereum (`tether-usdt-eth`)
 
@@ -197,14 +237,14 @@ The **Sync Feeds** button in the UI does the same thing as the first command, bu
 | Provider | Ethereum mainnet via **Tenderly's free public RPC gateway**, reading Tether's USDT contract `0xdAC17F958D2ee523a2206206994597C13D831ec7` |
 | RPC URLs | `https://gateway.tenderly.co/public/mainnet` (primary), `https://mainnet.gateway.tenderly.co` (fallback). Override with env `ETH_RPC_URL` |
 | Docs | https://docs.tenderly.co/node · contract: https://etherscan.io/token/0xdAC17F958D2ee523a2206206994597C13D831ec7 |
-| Method | **Incremental.** The first run, and a weekly safety rescan, read `eth_getLogs` from the deploy block (4,634,748) in 2M-block chunks; only Tenderly-class providers accept that. Every other run reads only the blocks since `notes.lastBlock` in the snapshot, staying 12 blocks behind the head for reorg safety |
+| Method | **Incremental.** The first run, and a weekly safety rescan, read `eth_getLogs` from the deploy block (4,634,748) in 2M-block chunks; only Tenderly-class providers accept that. Every other run reads only the blocks since `notes.lastBlock` recorded by the last run, staying 12 blocks behind the head for reorg safety |
 | Failover | Each block range is tried on providers in order: `ETH_RPC_URL` → Tenderly public (×2) → PublicNode (5k blocks) → MEV Blocker (5k) → dRPC (50). If the weekly full rescan can't run, the sync falls back to incremental. Tested 2026-10-28 with Tenderly blocked: PublicNode and MEV Blocker served the sync |
 | Events | `AddedBlackList(address)` `0x42e16015…19dc`, `RemovedBlackList(address)` `0xd7e9ec6e…470c`, `DestroyedBlackFunds(address,uint256)` `0x61e6e66b…98c6` |
 | Logic | An address is frozen if its **latest** Added/Removed event is `AddedBlackList`. `fundsDestroyed` is recorded in `details` |
 | Pricing | Free, no key |
 | Why Tenderly | Other free RPCs tested on 2026-10-28 limit `eth_getLogs` ranges: dRPC 10k blocks, Cloudflare 800, 1RPC 50, BlastAPI 10. PublicNode, Ankr and BlockPI require a key or payment |
 | Last run | 4,824 events: 2,828 currently frozen, 343 unfrozen |
-| Output | `data/intel/sources/tether-usdt-eth.json` |
+| Output | `intel_wallets` → `sources.sourceId: "tether-usdt-eth"` |
 
 ### 3.9 BSC: no Tether freeze list
 
@@ -220,7 +260,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Format | JSON array of EVM addresses |
 | Pricing | Free |
 | ⚠️ License | **GPL-3.0.** Have legal review this before redistributing the data in a commercial product |
-| Output | `data/intel/sources/scamsniffer.json` |
+| Output | `intel_wallets` → `sources.sourceId: "scamsniffer"` |
 
 ### 3.11 MyEtherWallet darklist (`mew-darklist`)
 
@@ -230,7 +270,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Docs | https://github.com/MyEtherWallet/ethereum-lists |
 | Format | JSON `[{ address, comment, date }]` |
 | Pricing | Free, MIT |
-| Output | `data/intel/sources/mew-darklist.json` |
+| Output | `intel_wallets` → `sources.sourceId: "mew-darklist"` |
 
 ### 3.12 eth-labels, Etherscan "Phish / Hack" (`eth-labels-phish-hack`)
 
@@ -241,7 +281,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Format | JSON `[{ address, nameTag }]`. A mirror of Etherscan's public label cloud |
 | Pricing | Free, MIT |
 | Note | Category `HACK_EXPLOIT` (e.g. "Bancor Hacker") |
-| Output | `data/intel/sources/eth-labels-phish-hack.json` |
+| Output | `intel_wallets` → `sources.sourceId: "eth-labels-phish-hack"` |
 
 ### 3.13 Forta labelled datasets (`forta-labelled`)
 
@@ -252,39 +292,115 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Format | CSV. `malicious_smart_contracts.csv` also gives the deployer address, which is stored as `Deployer of <contract tag>` |
 | Pricing | Free, MIT |
 | ⚠️ Freshness | **Static snapshot, last updated 2023-01.** Useful history, but it receives no new data |
-| Output | `data/intel/sources/forta-labelled.json` |
+| Output | `intel_wallets` → `sources.sourceId: "forta-labelled"` |
+
+### 3.13 FBI IC3 announcements (`fbi-ic3`)
+| | |
+|---|---|
+| What | Addresses the FBI publishes in IC3 public service announcements. Currently PSA250226: 51 Ethereum addresses used to launder the Bybit hack (DPRK TraderTraitor / Lazarus) |
+| Data URL | https://www.ic3.gov/PSA/2025/PSA250226 (list in `ANNOUNCEMENTS` in [fbiIc3.js](src/lib/collector/sources/fbiIc3.js); add new notices there) |
+| Format | HTML page; every `0x…` / `T…` address on it is taken |
+| Pricing / license | Free; US Government publication (public domain) |
+| Mirroring | Yes, EVM addresses are also recorded on BSC (`evm-mirror`) |
+| Output | `intel_wallets` → `sources.sourceId: "fbi-ic3"`, category `HACK_EXPLOIT` |
+
+### 3.14 Other stablecoin issuer freezes (`circle-usdc-eurc-eth`, `paxos-usdp-pyusd-eth`, `tusd-eth`)
+| | |
+|---|---|
+| What | Addresses frozen on-chain by stablecoin issuers other than Tether, rebuilt from contract events exactly like `tether-usdt-eth` (same RPC providers, full history then incremental, weekly rescan) |
+| Contracts / events | **Circle:** USDC `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, EURC `0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c` — `Blacklisted(address)` / `UnBlacklisted(address)`. **Paxos:** USDP `0x8E870D67F660D95d5be530380D0eC0bd388289E1`, PYUSD `0x6c3ea9036406852006290770BEdFcAbA0e23A0e8` — `AddressFrozen` / `AddressUnfrozen` / `FrozenAddressWiped`. **TrueUSD:** `0x0000000000085d4780B73119b644AE5ecd22b376` — `Blacklisted(address,bool)` (true = freeze) |
+| Format | `eth_getLogs`; the affected address is topic 1. Each record's `details.freezes` holds the freeze tx / block per token |
+| Pricing / license | Free, public on-chain data |
+| Notes | Issuers' own token contracts (frozen so tokens can't get stuck there) are skipped. Unfreezes remove the address |
+| Output | `intel_wallets` → category `ISSUER_FREEZE`. Screening names the issuer (e.g. "Circle Internet Financial Frozen Wallet") |
+
+### 3.15 Court-judgment fraud addresses (`judicial-fraud-labels`)
+| | |
+|---|---|
+| What | Wallets named in criminal judgments on crypto fraud and money laundering: roles `fraud platform`, `pseudo broker` (laundering), `illegal broker` |
+| Data | Dataset API https://data.mendeley.com/public-api/datasets/62dmsngtfb → file `judicial_ground_truth_address_labels_public*.csv` (latest version) |
+| Pricing / license | Free, **CC BY 4.0**. Attribution: Tsai, M. L., "Judicially Grounded Virtual Asset Address Labels and TRON TRC20-USDT Behavioral Analysis Dataset", Mendeley Data, doi:10.17632/62dmsngtfb. Changes made: victim and non-TRON rows removed |
+| Filtering | `victim` rows are dropped (they are not bad actors). Only TRON rows are kept: the public release masks some addresses, and TRON's base58 checksum rejects a masked one, while EVM rows can't be checked and don't name their chain |
+| Freshness | Static research dataset (v3, Aug 2026) |
+| Output | `intel_wallets` → category `SCAM_PHISHING`, tier 3 |
+
+### 3.16 eth-labels exploit labels (`eth-labels-exploits`)
+| | |
+|---|---|
+| What | From eth-labels' maintained CSV export: BSC (chainId 56) `heist` and `scam` labels, and Ethereum `*-exploit` labels (Bybit, WazirX, BingX, Filament, …). The `blocked` label is ignored (null/placeholder addresses) |
+| Data URL | `https://raw.githubusercontent.com/dawsbot/eth-labels/v1/data/csv/accounts.csv` |
+| Pricing / license | Free, MIT |
+| Output | `intel_wallets` → `HACK_EXPLOIT` (heist, exploit) / `SCAM_PHISHING` (scam) |
+
+### 3.17 DeFiHackLabs (`defihacklabs`)
+| | |
+|---|---|
+| What | Attacker wallets and attack contracts from ~900 reproduced DeFi exploits. Only Ethereum and BSC incidents are kept (chain from the explorer links in the header, or the PoC's fork) |
+| Data | File list via `https://api.github.com/repos/SunWeb3Sec/DeFiHackLabs/git/trees/main?recursive=1` (one unauthenticated GitHub API call per run), then each `src/test/<YYYY-MM>/*.sol` from raw.githubusercontent.com |
+| Format | Header comments `// Attacker : 0x…`, `// Attack Contract : 0x…`, `// Attack Tx : https://etherscan.io/…` |
+| Pricing / license | Free, Apache-2.0 (repository) |
+| Filtering | Incidents mentioning a whitehat, and known whitehat rescue bots (e.g. c0ffeebabe.eth), are skipped |
+| Output | `intel_wallets` → category `HACK_EXPLOIT`, `listedAt` = incident month, `details.lost` / `details.attackTx` |
 
 ---
 
 ## 4. Data model
 
-### Per-source snapshot (`data/intel/sources/<id>.json`)
+### Sync run (MongoDB `intel_sync_runs`)
 
 ```jsonc
 {
-  "source":   { "id", "name", "authority", "jurisdiction", "tier", "confidence", "category", "license", "homepage" },
-  "status":   "ok" | "stale" | "failed",
-  "fetchedAt": "ISO time", "sourceDate": "publisher's own date if any", "durationMs": 1234,
-  "stats":    { "items", "records", "rejected", "rejectedSample", "byChain", "byBasis" },
-  "notes":    { /* source-specific, e.g. NBCTF canceledOrders */ },
-  "records": [
-    {
-      "key": "TRON:TXyz…",          // chain:address (EVM lowercased)
-      "chain": "TRON" | "ETHEREUM" | "BSC",
-      "address": "…",
-      "basis": "listed" | "evm-mirror",
-      "category": "SANCTIONS" | "ISSUER_FREEZE" | "HACK_EXPLOIT" | "SCAM_PHISHING",
-      "entity": "GARANTEX EUROPE OU",
-      "programs": ["CYBER4", "RUSSIA-EO14024"],
-      "reference": { "id": "SDN-36025", "url": "https://…" },
-      "listedAt": "2022-05-04" | null,
-      "details": { /* e.g. validUntil, frozenAtBlock, fundsDestroyed */ }
-    }
-  ]
+  "_id": ObjectId("…"),
+  "status": "running" | "done" | "failed",
+  "startedAt": "ISO time", "finishedAt": "ISO time", "durationMs": 101000,
+  "only": null,                       // or the source ids of a partial run
+  "error": "…",                       // only when the whole run failed
+  "totals": { "entries", "active", "delisted", "added", "newlyDelisted", "relisted", "written" },
+  "sources": [ { "id", "status": "ok" | "stale" | "failed", "records", "fetchedAt", "sourceDate",
+                 "durationMs", "notes", "lastError", "lastAttemptAt", "shrinkBlocked" } ],
+  "warnings": [ { "sourceId", "kind", "message" } ],
+  "crossCheck": { "ofac": { "onlyInOfacDirect": [], "onlyIn0xB10C": [] } }
 }
 ```
 
-### Merged entry (`data/intel/addresses.json → entries[]`)
+### Sync error (MongoDB `intel_sync_errors`)
+
+```jsonc
+{
+  "runId": ObjectId("…"), "runStartedAt": "ISO time",
+  "failedAt": "ISO time",
+  "scope": "source" | "run",          // "run" = the whole run crashed (sourceId is null)
+  "sourceId": "tether-usdt-tron", "sourceName": "Tether USDT (TRC-20) frozen addresses", "authority": "…",
+  "kind": "http" | "network" | "timeout" | "rpc" | "format" | "shrink-blocked" | "other",
+  "name": "TypeError",
+  "message": "fetch failed",
+  "cause": "ENOTFOUND: getaddrinfo ENOTFOUND apilist.tronscanapi.com",   // the real reason, if any
+  "httpStatus": 503 | null,
+  "stack": "first lines of the stack trace",
+  "durationMs": 1234,
+  "outcome": "kept previous data" | "no data (never collected)" | "run failed, nothing written",
+  "recordsKept": 8070,                // listings still used for screening
+  "shrink": { "previous": 599, "fresh": 12 } | null
+}
+```
+
+A failure that a retry recovers from is not logged; only a source that ends the run failed or stale is.
+
+### Wallet change (MongoDB `intel_run_wallets`)
+
+```jsonc
+{
+  "runId": ObjectId("…"), "runAt": "ISO time",
+  "change": "added" | "delisted" | "relisted" | "source-added" | "source-removed",
+  "key": "TRON:TXyz…", "chain": "TRON", "address": "TXyz…",
+  "status": "active", "category": "ISSUER_FREEZE", "tier": 2, "confidence": 90,
+  "entities": ["Tether-frozen address"], "firstSeen": "ISO time",
+  "sources": [ { "sourceId", "authority", "jurisdiction", "category", "basis",
+                 "entity", "programs", "reference", "listedAt" } ]   // the listings that were added / removed
+}
+```
+
+### Merged entry (MongoDB `intel_wallets`)
 
 ```jsonc
 {
@@ -302,11 +418,14 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
                  "removedAt" } ],     // ISO time of the run that first saw it gone, else null
   "status":     "active",             // "active" | "delisted" (no source lists it any more)
   "firstSeen":  "ISO time (kept across runs)",
-  "lastSeen":   "ISO time of the last run that saw it listed",
   "delistedAt": null,                 // ISO time it became delisted
-  "relistedAt": null                  // ISO time it was listed again after being delisted
+  "relistedAt": null,                 // ISO time it was listed again after being delisted
+  "updatedAt":  "ISO time of the last run that changed this wallet",
+  "search":     "lowercased address, entities, programs, reference ids (directory search; not returned by the API)"
 }
 ```
+
+The directory lists wallets **newest first** (`firstSeen` descending); wallets found in the same run are ordered most severe first (tier, then confidence).
 
 ### Wallets are never deleted
 When a publisher drops an address, the next sync keeps it: that source's record gets `status: "removed"` + `removedAt`. If no source lists the address any more, the whole entry becomes `status: "delisted"` + `delistedAt`, and keeps the category / entity / programs it was listed under. If it is listed again, it returns to `active` with `relistedAt` set.
@@ -320,14 +439,18 @@ When a publisher drops an address, the next sync keeps it: that source's record 
 - **Validation:** TRON addresses must pass the base58check checksum, and EVM addresses must be `0x` plus 40 hex characters. Anything else (BTC, `bnb1…`, phone numbers, typos) is rejected and counted in `stats.rejected`.
 - **EVM mirroring (sanctions tiers only):** the same private key controls an EVM address on every EVM chain, so a sanctioned address is recorded on **both** Ethereum and BSC. The chain the publisher named is `basis: "listed"`. The other is `basis: "evm-mirror"`, with **confidence −10**. If no chain is named (e.g. `USDT: 0x…`), Ethereum counts as listed.
 - **No mirroring** for Tether freezes, which apply to one specific contract, or for OSINT lists, which are Ethereum-specific.
-- **Failure handling:** if a source fails, times out, or shrinks past its limit, its previous snapshot is kept and marked `stale`, so one outage or parser break never removes addresses (see *Consistency guarantees* in §2).
+- **Failure handling:** if a source fails, times out, or shrinks past its limit, its current listings are kept and it is marked `stale`, so one outage or parser break never removes addresses (see *Consistency guarantees* in §2).
 
 ---
 
-## 5. Environment variables (all optional)
+## 5. Environment variables
+
+`MONGODB_URI` is required; the rest are optional.
 
 | Variable | Used by | Effect |
 |---|---|---|
+| `MONGODB_URI` | Collector, directory, screening | MongoDB Atlas connection string (`mongodb+srv://…`). **Required** |
+| `MONGODB_DB` | Collector, directory, screening | Database name (default `dextrlabs_kyt`) |
 | `ETH_RPC_URL` | `tether-usdt-eth` | Your own Ethereum RPC URL (key inside the URL, e.g. a Tenderly Node RPC from https://dashboard.tenderly.co), tried before the free public nodes |
 | `ETH_RPC_MAX_RANGE` | `tether-usdt-eth` | Largest `eth_getLogs` block range your `ETH_RPC_URL` accepts (default 2,000,000). Lower it for providers like Alchemy or Infura |
 | `TRONSCAN_API_KEY` | `tether-usdt-tron` | Sent as `TRON-PRO-API-KEY` for higher TronScan limits. **TronScan keys are separate from TronGrid keys** |
@@ -346,6 +469,11 @@ When a publisher drops an address, the next sync keeps it: that source's record 
 | CryptoScamDB API | Down (HTTP 502) as of 2026-10-28 | https://cryptoscamdb.org/ |
 | SlowMist Hacked | No structured address feed; would need manual extraction | https://hacked.slowmist.io/ |
 | Commercial (Chainalysis, TRM Labs, Elliptic) | Paid enterprise contracts | — |
+| BSC stablecoin freezes (USD1, FDUSD) | The contracts do emit `Freeze(address,address)` / `Unfreeze(address,address)`, but free BSC RPCs serve at most 5,000 blocks per `eth_getLogs` call (BSC is ~130M blocks), so reading the history needs a paid RPC or BscScan API key | — |
+| Chainalysis sanctions oracle (`0x40C5…fb`) | Deprecated (last update 2026-03); a subset of OFAC, which we already parse | — |
+| TronScan security API / GoPlus address security | Per-address lookups only (no bulk list); suited to live screening, not to the database. TronScan's flags did not mark sanctioned or seized TRON wallets in a 2026-10-29 test | https://apilist.tronscanapi.com · https://gopluslabs.io |
+| Chainabuse | Free key is 10 calls/month; partner access by request. Largest source of TRON scam reports | https://docs.chainabuse.com/ |
+| DeFiLlama hacks | Incident list without addresses | https://api.llama.fi/hacks |
 
 ---
 
@@ -368,7 +496,7 @@ When a publisher drops an address, the next sync keeps it: that source's record 
    ```
 2. Register it in [src/lib/collector/sources/index.js](src/lib/collector/sources/index.js).
 3. Add a label and colour for it in `SOURCE_LABELS` / `SOURCE_BADGES` in [SanctionedWalletsDirectory.jsx](src/components/SanctionedWalletsDirectory.jsx).
-4. Run `npm run collect:intel -- --only=my-source` and check `data/intel/sources/my-source.json`.
+4. Run `npm run collect:intel -- --only=my-source` and check its wallets in `intel_wallets` (`sources.sourceId: "my-source"`) and its status in the newest `intel_sync_runs` document.
 5. Add a section for it to this document.
 
 ---
@@ -380,7 +508,8 @@ When a publisher drops an address, the next sync keeps it: that source's record 
 | `il-nbctf` fails with "anti-forgery token not found" | The NBCTF site changed its page layout or URL | Open the site in a browser, find the crypto export form, and update `SEARCH_PAGE` / form fields in `ilNbctf.js` |
 | `tether-usdt-eth` fails with a range or limit error on every RPC | Tenderly changed its free limits | Set `ETH_RPC_URL` to another archive RPC, or lower `CHUNK` in `tetherEth.js` |
 | `tether-usdt-tron` says "blacklist incomplete after 3 attempts" | TronScan rate-limited, or the list kept changing mid-read | Re-run that source, or set `TRONSCAN_API_KEY` |
-| A warning says "record count fell from X to Y" | The shrink guard blocked a big drop | Compare `sources/<id>.rejected.json` with the publisher. If the delisting is real, click **Accept new data** (or `--accept-shrink=<id>`); if not, the parser needs fixing |
+| A warning says "record count fell from X to Y" | The shrink guard blocked a big drop | Compare the counts in the warning with the publisher. If the delisting is real, click **Accept new data** (or `--accept-shrink=<id>`); if not, the parser needs fixing |
 | "another collection is already running" | A sync is in progress (UI or CLI) | Wait for it; a lock from a crashed run is taken over automatically after the process is gone |
 | `crossCheck.ofac` is not empty | The OFAC XML parser and 0xB10C disagree | Check the listed addresses in the SDN search. Either OFAC added a new asset type (update `RELEVANT_ASSETS`) or the XML structure changed |
-| A source shows `stale` in the UI (amber dot) | Its last fetch failed, so the previous data is in use | See `lastError` in `data/intel/manifest.json` |
+| A source shows `stale` in the UI (amber dot) | Its last fetch failed, so the previous data is in use | See the newest document for that source in `intel_sync_errors` (message, cause, stack) |
+| Directory and screening fail with "MONGODB_URI is not set" or a connection error | No connection string, or Atlas is blocking this machine | Set `MONGODB_URI` in `.env`; in Atlas → Network Access, allow this machine's IP |

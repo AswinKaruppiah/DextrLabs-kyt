@@ -28,6 +28,7 @@ For full details on the exact feeds, government sources, and data flow architect
 
 Create or verify `.env` in the project root:
 ```env
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/
 TRONGRID_HOST=https://api.trongrid.io
 TRONGRID_API_KEY=your_trongrid_api_key
 TRON_USDT_CONTRACT_HEX=41a614f803b6fd780986a42c78ec9c7f77e6ded13c

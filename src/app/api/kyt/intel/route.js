@@ -14,7 +14,7 @@ import { queryIntel } from "@/lib/collector/store";
 export async function GET(request) {
   try {
     const sp = request.nextUrl.searchParams;
-    const result = queryIntel({
+    const result = await queryIntel({
       search: sp.get("search") || "",
       chain: sp.get("chain") || "ALL",
       category: sp.get("category") || "ALL",

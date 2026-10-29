@@ -8,7 +8,7 @@ How **DextrLabs-KYT** collects risk addresses and uses them to screen USDT activ
 
 ## 1. Principles
 
-1. **One address database.** All wallet intelligence lives in `data/intel/addresses.json`, built by the collector. Screening and the directory UI read the same file. There are no hardcoded wallet lists in the code.
+1. **One address database.** All wallet intelligence lives in the MongoDB Atlas collection `intel_wallets`, built by the collector. Screening and the directory UI read the same collection. There are no hardcoded wallet lists in the code.
 2. **Primary sources, free, commercially usable.** Government lists are pulled directly from OFAC, the EU, UK FCDO, the UN and Israel NBCTF. OpenSanctions is **not** used, because its license is non-commercial.
 3. **Every flag shows its sources.** Each address carries every source that flagged it: authority, program, reference link, listing date, and whether the chain was named by the source (`listed`) or applied by EVM mirroring (`evm-mirror`).
 4. **Severity by tier.** Tier 1 (sanctions) and Tier 2 (Tether freezes) block. Tier 4 (OSINT) sends the address to review and never blocks on its own.
@@ -19,22 +19,25 @@ How **DextrLabs-KYT** collects risk addresses and uses them to screen USDT activ
 ## 2. Data flow
 
 ```
-     Government lists              Issuer freezes                 OSINT
- OFAC · EU · UK · UN · NBCTF   Tether TRON · Tether ETH   ScamSniffer · MEW · eth-labels · Forta
-             │                          │                              │
-             └──────────────────────────┼──────────────────────────────┘
+     Government lists              Issuer freezes              Court records          OSINT
+ OFAC · EU · UK · UN · NBCTF   Tether TRON · Tether ETH       Judicial fraud      ScamSniffer · MEW · eth-labels
+        · FBI IC3              Circle · Paxos · TUSD (ETH)    labels (TRON)       Forta · DeFiHackLabs
+             │                          │                          │                    │
+             └──────────────────────────┼──────────────────────────┴────────────────────┘
                                         ▼
                      src/lib/collector  (npm run collect:intel)
                      - validate (TRON checksum / EVM hex)
                      - EVM mirroring ETH ⇄ BSC (sanctions only)
                      - merge per chain:address, keep every source
-                     - keep last good snapshot if a feed fails
+                     - keep current listings if a feed fails
                                         │
                                         ▼
-                     data/intel/addresses.json   (~21.6k entries)
-                     data/intel/manifest.json    (feed health)
+                     MongoDB Atlas  intel_wallets (~21.6k, only changed wallets written)
+                                    intel_sync_runs   (each run: time, status, warnings, errors)
+                                    intel_run_wallets (wallets each run changed + source)
+                                    intel_sync_errors (every source failure: when, which, why)
                                         │
-                     src/lib/collector/store.js  (in-memory index, reloads on file change)
+                     src/lib/collector/store.js  (queries; directory newest first)
                      ┌──────────────────┴───────────────────┐
                      ▼                                      ▼
       Screening  POST /api/kyt/screen          Directory  GET  /api/kyt/intel
@@ -96,4 +99,4 @@ The running job (per-source status and progress) or the last finished one, with 
 | `REGULATED_EXCHANGES` is empty | Exchange hot wallets are scored as unhosted (10) instead of regulated (5) | Add an exchange-label source |
 | Data is only as fresh as the last collection | Freezes or designations made after the last sync are missed (TRON freezes are still caught live) | Schedule `npm run collect:intel`, e.g. hourly |
 | No transaction-graph expansion | Only listed addresses are flagged, not their funders or sweep wallets | Attribution expansion phase |
-| Missing `data/intel/` | Screening would approve everything; a warning is logged | Run `npm run collect:intel` after cloning (the folder is gitignored) |
+| Empty `intel_wallets` | Screening would approve everything | Run `npm run collect:intel` once against a new database |

@@ -1,46 +1,26 @@
-import fs from "node:fs";
-import path from "node:path";
+import { ObjectId } from "mongodb";
 import { SOURCES } from "./sources/index.js";
 import { addressFamily, addressKey, normalizeAddress, resolveTargets } from "./util/address.js";
 import { runWithSignal } from "./util/http.js";
+import { runWalletsCollection, syncErrorsCollection, syncRunsCollection, walletsCollection } from "./db.js";
 
-export const INTEL_DIR = path.join(process.cwd(), "data", "intel");
-const SOURCES_DIR = path.join(INTEL_DIR, "sources");
-const ADDRESSES_FILE = path.join(INTEL_DIR, "addresses.json");
-const MANIFEST_FILE = path.join(INTEL_DIR, "manifest.json");
-const CHANGELOG_FILE = path.join(INTEL_DIR, "changelog.jsonl");
-const LOCK_FILE = path.join(INTEL_DIR, ".collect.lock");
+const WRITE_BATCH = 1000;
 
 // Confidence penalty when an EVM address is applied to a chain the publisher did not name.
 const MIRROR_PENALTY = 10;
 const CATEGORY_PRIORITY = ["SANCTIONS", "ISSUER_FREEZE", "HACK_EXPLOIT", "SCAM_PHISHING"];
 
-// A source that doesn't finish in time keeps its last good snapshot (sources can override).
+// A source that doesn't finish in time keeps its current listings (sources can override).
 const DEFAULT_SOURCE_TIMEOUT_MS = 4 * 60 * 1000;
-// A lock older than this belongs to a crashed run.
-const LOCK_STALE_MS = 30 * 60 * 1000;
+// A run still "running" after this belongs to a crashed process (the slowest source is capped at 8 min).
+const RUN_STALE_MS = 20 * 60 * 1000;
 
 /**
- * Largest drop in record count (vs the last good snapshot) accepted without review, by tier.
+ * Largest drop in record count (vs the source's current listings) accepted without review, by tier.
  * Sanctions are almost never delisted in bulk, so a big drop usually means the publisher
  * changed its format and our parser missed entries. Sources can override with `maxShrink`.
  */
 const MAX_SHRINK_BY_TIER = { 1: 0.1, 2: 0.05, 4: 0.3 };
-
-function readJson(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return null;
-  }
-}
-
-function writeJson(file, data) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
-  fs.renameSync(tmp, file);
-}
 
 const sourceMeta = (s) => ({
   id: s.id,
@@ -60,6 +40,8 @@ const countBy = (list, fn) =>
     acc[k] = (acc[k] || 0) + 1;
     return acc;
   }, {});
+
+const recordStats = (records) => ({ records: records.length, byChain: countBy(records, (r) => r.chain) });
 
 /** Raw source items -> validated, per-chain, de-duplicated records. */
 function toRecords(source, items) {
@@ -87,9 +69,7 @@ function toRecords(source, items) {
         basis,
         category: item.category || source.category,
         entity: item.entity || null,
-        entityType: item.entityType || null,
         programs: item.programs || [],
-        asset: item.asset || null,
         reference: item.reference || null,
         listedAt: item.listedAt || null,
         details: item.details || null,
@@ -100,8 +80,52 @@ function toRecords(source, items) {
 }
 
 /**
- * Compares a fresh record count with the last good snapshot. Returns a reason string when the
- * drop is larger than the source's limit, otherwise null.
+ * Each source's last known result, rebuilt from the database: its active listings in
+ * intel_wallets plus the status and notes the last finished run recorded for it.
+ * Incremental sources resume from these notes (e.g. the Ethereum block reached).
+ */
+function previousResults(stored, lastRun) {
+  const records = new Map();
+  for (const entry of stored.values()) {
+    for (const s of entry.sources) {
+      if (s.status === "removed") continue;
+      if (!records.has(s.sourceId)) records.set(s.sourceId, []);
+      records.get(s.sourceId).push({
+        key: entry.key,
+        chain: entry.chain,
+        address: entry.address,
+        basis: s.basis,
+        category: s.category,
+        entity: s.entity,
+        programs: s.programs,
+        reference: s.reference,
+        listedAt: s.listedAt,
+        details: s.details,
+      });
+    }
+  }
+  const results = new Map();
+  for (const source of SOURCES) {
+    const run = lastRun?.sources?.find((s) => s.id === source.id);
+    const list = records.get(source.id) || [];
+    if (!run && !list.length) continue;
+    results.set(source.id, {
+      source: sourceMeta(source),
+      status: run?.status || "ok",
+      fetchedAt: run?.fetchedAt || null,
+      sourceDate: run?.sourceDate || null,
+      notes: run?.notes || null,
+      lastError: run?.lastError || null,
+      records: list,
+      stats: recordStats(list),
+    });
+  }
+  return results;
+}
+
+/**
+ * Compares a fresh record count with the source's current listings. Returns a reason string when
+ * the drop is larger than the source's limit, otherwise null.
  */
 function checkShrink(source, previousCount, freshCount) {
   if (!previousCount) return null;
@@ -132,11 +156,8 @@ async function collectWithTimeout(source, args) {
   }
 }
 
-async function runSource(source, { acceptShrink = false, onProgress = () => {} } = {}) {
-  const file = path.join(SOURCES_DIR, `${source.id}.json`);
+async function runSource(source, previous, { acceptShrink = false, onProgress = () => {} } = {}) {
   const started = Date.now();
-  // Last snapshot (if any) lets incremental sources resume where they stopped.
-  const previous = readJson(file);
   onProgress({ sourceId: source.id, status: "running" });
   try {
     const { items, sourceDate = null, notes = null } = await collectWithTimeout(source, {
@@ -145,54 +166,82 @@ async function runSource(source, { acceptShrink = false, onProgress = () => {} }
     });
     const { records, rejected } = toRecords(source, items);
     if (!records.length && items.length) throw new Error(`all ${items.length} items failed validation`);
-    const result = {
+    const shrink = acceptShrink ? null : checkShrink(source, previous?.records.length || 0, records.length);
+    if (shrink) {
+      const err = new Error(shrink);
+      err.shrink = { previous: previous.records.length, fresh: records.length };
+      throw err;
+    }
+    return {
       source: sourceMeta(source),
       status: "ok",
       fetchedAt: new Date().toISOString(),
       sourceDate,
       durationMs: Date.now() - started,
-      stats: {
-        items: items.length,
-        records: records.length,
-        rejected: rejected.length,
-        rejectedSample: rejected.slice(0, 10),
-        byChain: countBy(records, (r) => r.chain),
-        byBasis: countBy(records, (r) => r.basis),
-      },
+      stats: { items: items.length, ...recordStats(records), rejected: rejected.length, rejectedSample: rejected.slice(0, 10) },
       notes,
       records,
     };
-    const shrink = acceptShrink ? null : checkShrink(source, previous?.records?.length || 0, records.length);
-    if (shrink) {
-      // Park the suspicious result next to the snapshot so it can be inspected or accepted.
-      writeJson(path.join(SOURCES_DIR, `${source.id}.rejected.json`), result);
-      const err = new Error(shrink);
-      err.shrink = { previous: previous.records.length, fresh: records.length };
-      throw err;
-    }
-    writeJson(file, result);
-    fs.rmSync(path.join(SOURCES_DIR, `${source.id}.rejected.json`), { force: true });
-    return result;
   } catch (err) {
-    // Keep the last good snapshot so one broken feed never empties the database.
-    const result = previous
-      ? {
-          ...previous,
-          status: "stale",
-          lastError: err.message,
-          lastAttemptAt: new Date().toISOString(),
-          shrinkBlocked: err.shrink || null,
-        }
-      : {
-          source: sourceMeta(source),
-          status: "failed",
-          lastError: err.message,
-          lastAttemptAt: new Date().toISOString(),
-          records: [],
-          stats: { records: 0 },
-        };
-    if (previous) writeJson(file, result);
-    return result;
+    // Keep the current listings so one broken feed never empties the database.
+    const error = describeError(err);
+    return {
+      ...(previous || { source: sourceMeta(source), records: [], stats: recordStats([]) }),
+      status: previous ? "stale" : "failed",
+      lastError: error.cause ? `${error.message} (${error.cause})` : error.message,
+      lastAttemptAt: new Date().toISOString(),
+      durationMs: Date.now() - started,
+      shrinkBlocked: err.shrink || null,
+      error,
+    };
+  }
+}
+
+/** Error details worth keeping. A failed fetch only says "fetch failed"; the reason is in `cause`. */
+function describeError(err) {
+  const message = String(err?.message || err);
+  const cause = err?.cause ? (err.cause.code ? `${err.cause.code}: ${err.cause.message}` : String(err.cause.message || err.cause)) : null;
+  let kind = "other";
+  if (err?.shrink) kind = "shrink-blocked";
+  else if (/^timed out after/.test(message) || err?.name === "TimeoutError") kind = "timeout";
+  else if (/^HTTP \d{3}/.test(message)) kind = "http";
+  else if (/^RPC |Ethereum RPCs failed/.test(message)) kind = "rpc";
+  else if (/format changed|layout changed|failed validation|incomplete after|expected CSV/.test(message)) kind = "format";
+  else if (cause || /fetch failed/i.test(message)) kind = "network";
+  return {
+    kind,
+    name: err?.name || "Error",
+    message,
+    cause,
+    httpStatus: Number(message.match(/HTTP (\d{3})/)?.[1]) || null,
+    stack: err?.stack?.split("\n").slice(0, 8).join("\n") || null,
+  };
+}
+
+/**
+ * Logs a failure to intel_sync_errors. `result` is a failed source result, or null when the
+ * whole run failed. Never throws: losing the log must not also lose the run.
+ */
+async function recordError(run, source, result, err = null) {
+  const error = result?.error || describeError(err);
+  try {
+    await (await syncErrorsCollection()).insertOne({
+      runId: run._id,
+      runStartedAt: run.startedAt,
+      failedAt: result?.lastAttemptAt || new Date().toISOString(),
+      sourceId: source?.id || null,
+      sourceName: source?.name || null,
+      authority: source?.authority || null,
+      scope: source ? "source" : "run",
+      ...error,
+      durationMs: result?.durationMs ?? null,
+      // What happened to the data: a stale source keeps the listings it had before.
+      outcome: !source ? "run failed, nothing written" : result.status === "stale" ? "kept previous data" : "no data (never collected)",
+      recordsKept: result?.stats?.records ?? null,
+      shrink: result?.shrinkBlocked || null,
+    });
+  } catch (logErr) {
+    console.error("[intel] could not record sync error:", logErr.message);
   }
 }
 
@@ -212,8 +261,8 @@ function summarise(entry, sources) {
 /**
  * Builds the address database. Nothing is ever deleted: when a publisher drops an address,
  * its source record stays with status "removed" + removedAt, and an address with no active
- * source left stays in the file with status "delisted" + delistedAt. Screening only uses
- * active sources. If a publisher lists the address again, it becomes active again.
+ * source left stays with status "delisted" + delistedAt. Screening only uses active sources.
+ * If a publisher lists the address again, it becomes active again.
  */
 function mergeRecords(results, previousEntries) {
   const now = new Date().toISOString();
@@ -231,7 +280,6 @@ function mergeRecords(results, previousEntries) {
           address: r.address,
           status: "active",
           firstSeen: prev?.firstSeen || now,
-          lastSeen: now,
           delistedAt: null,
           // Set when an address that had been delisted is listed again.
           relistedAt: prev?.status === "delisted" ? now : prev?.relistedAt || null,
@@ -290,6 +338,37 @@ function mergeRecords(results, previousEntries) {
   return [...entries.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
 
+const activeSourceIds = (entry) =>
+  new Set((entry?.sources || []).filter((s) => s.status !== "removed").map((s) => s.sourceId));
+
+/**
+ * What this run changed, one item per wallet and kind of change:
+ *  added          — wallet seen for the first time
+ *  delisted       — its last active source dropped it
+ *  relisted       — listed again after being delisted
+ *  source-added   — an existing wallet is now also listed by another source
+ *  source-removed — one source dropped it, others still list it
+ * `sources` holds the source listings involved.
+ */
+function walletChanges(entries, previousEntries) {
+  const changes = [];
+  for (const entry of entries) {
+    const prev = previousEntries.get(entry.key);
+    const before = activeSourceIds(prev);
+    const after = activeSourceIds(entry);
+    const gained = entry.sources.filter((s) => s.status === "active" && !before.has(s.sourceId));
+    const lost = (prev?.sources || []).filter((s) => s.status !== "removed" && !after.has(s.sourceId));
+    if (!prev) changes.push({ change: "added", entry, sources: gained });
+    else if (entry.status === "delisted" && prev.status !== "delisted") changes.push({ change: "delisted", entry, sources: lost });
+    else if (entry.status === "active" && prev.status === "delisted") changes.push({ change: "relisted", entry, sources: gained });
+    else {
+      if (gained.length) changes.push({ change: "source-added", entry, sources: gained });
+      if (lost.length) changes.push({ change: "source-removed", entry, sources: lost });
+    }
+  }
+  return changes;
+}
+
 /** OFAC direct parse vs the 0xB10C extract: both should agree on the address set. */
 function ofacCrossCheck(results) {
   const listed = (id) =>
@@ -334,69 +413,77 @@ function buildWarnings(results, crossCheck) {
 
 export class CollectionBusyError extends Error {}
 
-const pidAlive = (pid) => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return err.code === "EPERM";
-  }
-};
-
 /**
- * Cross-process lock (the web app and `npm run collect:intel` share data/intel), so two runs
- * never write the same snapshot files at once. A lock left by a crashed run is taken over.
+ * Records the run in intel_sync_runs with status "running". The unique index on running runs
+ * makes this the lock shared by the web app and `npm run collect:intel`, so two runs never
+ * write at once. A run left "running" by a crashed process is closed and taken over.
  */
-function acquireLock() {
-  fs.mkdirSync(INTEL_DIR, { recursive: true });
+async function startRun(runs, only) {
   for (let attempt = 0; attempt < 2; attempt++) {
+    const run = { _id: new ObjectId(), status: "running", startedAt: new Date().toISOString(), only };
     try {
-      fs.writeFileSync(LOCK_FILE, JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }), {
-        flag: "wx",
-      });
-      return () => fs.rmSync(LOCK_FILE, { force: true });
+      await runs.insertOne(run);
+      return run;
     } catch (err) {
-      if (err.code !== "EEXIST") throw err;
-      const held = readJson(LOCK_FILE);
-      const abandoned =
-        !held || !pidAlive(held.pid) || Date.now() - Date.parse(held.startedAt) > LOCK_STALE_MS;
-      if (!abandoned) {
-        throw new CollectionBusyError(
-          `another collection is already running (pid ${held.pid}, started ${held.startedAt})`,
+      if (err.code !== 11000) throw err;
+      const held = await runs.findOne({ status: "running" });
+      if (held && Date.now() - Date.parse(held.startedAt) < RUN_STALE_MS) {
+        throw new CollectionBusyError(`another collection is already running (started ${held.startedAt})`);
+      }
+      if (held) {
+        await runs.updateOne(
+          { _id: held._id, status: "running" },
+          { $set: { status: "failed", finishedAt: new Date().toISOString(), error: "abandoned: the process stopped mid-run" } },
         );
       }
-      fs.rmSync(LOCK_FILE, { force: true });
     }
   }
-  throw new CollectionBusyError("could not acquire the collection lock");
+  throw new CollectionBusyError("could not start a run");
 }
 
 /**
- * Runs every source (or `only` ids), writes per-source snapshots, the merged address
- * database, a manifest, and appends a changelog line.
+ * Runs every source (or `only` ids), upserts the wallets that changed into intel_wallets,
+ * records each wallet change in intel_run_wallets and the run itself in intel_sync_runs.
  * @param {string[]} [acceptShrink]  source ids whose record-count drop is accepted (see checkShrink)
  * @param {(event: object) => void} [onProgress]  per-source status events
  */
 export async function runCollection({ only = null, acceptShrink = [], log = console.log, onProgress = () => {} } = {}) {
-  const release = acquireLock();
+  if (only) {
+    const known = new Set(SOURCES.map((s) => s.id));
+    const unknown = only.filter((id) => !known.has(id));
+    if (unknown.length) throw new Error(`unknown source id(s): ${unknown.join(", ")}`);
+  }
+  const runs = await syncRunsCollection();
+  const run = await startRun(runs, only);
   try {
-    return await collectLocked({ only, acceptShrink, log, onProgress });
-  } finally {
-    release();
+    const summary = await collect(run, { only, acceptShrink, log, onProgress });
+    await runs.updateOne({ _id: run._id }, { $set: { status: "done", ...summary } });
+    return { runId: String(run._id), runAt: summary.finishedAt, ...summary };
+  } catch (err) {
+    await recordError(run, null, null, err);
+    await runs
+      .updateOne({ _id: run._id }, { $set: { status: "failed", finishedAt: new Date().toISOString(), error: err.message } })
+      .catch(() => {});
+    throw err;
   }
 }
 
-async function collectLocked({ only, acceptShrink, log, onProgress }) {
-  const started = Date.now();
-  const selected = only ? SOURCES.filter((s) => only.includes(s.id)) : SOURCES;
-  if (only && selected.length !== only.length) {
-    const known = new Set(SOURCES.map((s) => s.id));
-    throw new Error(`unknown source id(s): ${only.filter((id) => !known.has(id)).join(", ")}`);
-  }
+async function collect(run, { only, acceptShrink, log, onProgress }) {
+  const started = Date.parse(run.startedAt);
+  const [wallets, runs] = await Promise.all([walletsCollection(), syncRunsCollection()]);
+  const stored = new Map((await wallets.find({}).toArray()).map((doc) => [doc._id, fromStored(doc)]));
+  const lastRun = await runs.findOne({ status: "done" }, { sort: { finishedAt: -1 } });
+  const previous = previousResults(stored, lastRun);
 
+  const selected = only ? SOURCES.filter((s) => only.includes(s.id)) : SOURCES;
   const fresh = await Promise.all(
     selected.map(async (source) => {
-      const result = await runSource(source, { acceptShrink: acceptShrink.includes(source.id), onProgress });
+      const result = await runSource(source, previous.get(source.id) || null, {
+        acceptShrink: acceptShrink.includes(source.id),
+        onProgress,
+      });
+      // Logged as soon as the source fails, so it is kept even if the run dies later.
+      if (result.error) await recordError(run, source, result);
       onProgress({
         sourceId: source.id,
         status: result.status,
@@ -411,75 +498,40 @@ async function collectLocked({ only, acceptShrink, log, onProgress }) {
     }),
   );
 
-  // Partial runs still merge the full set: unselected sources come from their last snapshot.
-  const results = SOURCES.map(
-    (s) => fresh.find((r) => r.source.id === s.id) || readJson(path.join(SOURCES_DIR, `${s.id}.json`)),
-  ).filter(Boolean);
+  // Partial runs still merge the full set: unselected sources keep their current listings.
+  const results = SOURCES.map((s) => fresh.find((r) => r.source.id === s.id) || previous.get(s.id)).filter(Boolean);
+  const entries = mergeRecords(results, stored);
 
-  const previous = readJson(ADDRESSES_FILE);
-  const previousEntries = new Map((previous?.entries || []).map((e) => [e.key, e]));
-  const entries = mergeRecords(results, previousEntries);
+  // Only wallets that differ from the stored copy are written.
+  const finishedAt = new Date().toISOString();
+  const changed = entries.filter((e) => !stored.has(e.key) || canonical(e) !== canonical(stored.get(e.key)));
+  await writeWallets(wallets, changed, finishedAt);
+  const changes = walletChanges(entries, stored);
+  await writeRunWallets(run._id, finishedAt, changes);
+  log(`  wrote ${changed.length} of ${entries.length} wallets, ${changes.length} change(s) logged`);
 
-  const generatedAt = new Date().toISOString();
-  const active = entries.filter((e) => e.status === "active");
-  writeJson(ADDRESSES_FILE, {
-    generatedAt,
-    totals: {
-      entries: entries.length,
-      active: active.length,
-      delisted: entries.length - active.length,
-      byChain: countBy(active, (e) => e.chain),
-      byCategory: countBy(active, (e) => e.category),
-      byTier: countBy(active, (e) => `tier${e.tier}`),
-    },
-    entries,
-  });
-
-  const wasActive = (key) => {
-    const prev = previousEntries.get(key);
-    return prev && prev.status !== "delisted";
-  };
-  const added = entries.filter((e) => !previousEntries.has(e.key)).map((e) => e.key);
-  const delisted = entries.filter((e) => e.status === "delisted" && wasActive(e.key)).map((e) => e.key);
-  const relisted = active.filter((e) => previousEntries.get(e.key)?.status === "delisted").map((e) => e.key);
-  fs.appendFileSync(
-    CHANGELOG_FILE,
-    JSON.stringify(
-      previous
-        ? {
-            runAt: generatedAt,
-            added: added.length,
-            delisted: delisted.length,
-            relisted: relisted.length,
-            addedKeys: added,
-            delistedKeys: delisted,
-            relistedKeys: relisted,
-          }
-        : { runAt: generatedAt, initial: true, added: added.length },
-    ) + "\n",
-  );
-
+  const count = (kind) => changes.filter((c) => c.change === kind).length;
+  const active = entries.filter((e) => e.status === "active").length;
   const crossCheck = { ofac: ofacCrossCheck(results) };
-  const manifest = {
-    runAt: generatedAt,
+  return {
+    finishedAt,
     durationMs: Date.now() - started,
     totals: {
       entries: entries.length,
-      active: active.length,
-      delisted: entries.length - active.length,
-      added: added.length,
-      newlyDelisted: delisted.length,
-      relisted: relisted.length,
+      active,
+      delisted: entries.length - active,
+      added: count("added"),
+      newlyDelisted: count("delisted"),
+      relisted: count("relisted"),
+      written: changed.length,
     },
     sources: results.map((r) => ({
-      ...r.source,
+      id: r.source.id,
       status: r.status,
+      records: r.stats?.records ?? 0,
       fetchedAt: r.fetchedAt || null,
       sourceDate: r.sourceDate || null,
       durationMs: r.durationMs ?? null,
-      records: r.stats?.records ?? 0,
-      rejected: r.stats?.rejected ?? 0,
-      byChain: r.stats?.byChain || {},
       notes: r.notes || null,
       lastError: r.lastError || null,
       lastAttemptAt: r.lastAttemptAt || null,
@@ -488,6 +540,71 @@ async function collectLocked({ only, acceptShrink, log, onProgress }) {
     crossCheck,
     warnings: buildWarnings(results, crossCheck),
   };
-  writeJson(MANIFEST_FILE, manifest);
-  return manifest;
+}
+
+/** A stored wallet without the fields that are derived when it is written. */
+function fromStored({ _id, search, updatedAt, ...entry }) {
+  return entry;
+}
+
+/** JSON with object keys sorted, so two wallets compare equal whatever their field order. */
+const canonical = (value) =>
+  JSON.stringify(value, (_, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  );
+
+/** Lowercased text the directory search matches against. */
+const searchText = (e) =>
+  [e.address, ...e.entities, ...e.sources.flatMap((s) => [...(s.programs || []), s.reference?.id || ""])]
+    .join(" ")
+    .toLowerCase();
+
+async function writeWallets(wallets, changed, now) {
+  for (let i = 0; i < changed.length; i += WRITE_BATCH) {
+    await wallets.bulkWrite(
+      changed.slice(i, i + WRITE_BATCH).map((e) => ({
+        replaceOne: {
+          filter: { _id: e.key },
+          replacement: { _id: e.key, ...e, updatedAt: now, search: searchText(e) },
+          upsert: true,
+        },
+      })),
+      { ordered: false },
+    );
+  }
+}
+
+async function writeRunWallets(runId, runAt, changes) {
+  const docs = changes.map(({ change, entry, sources }) => ({
+    runId,
+    runAt,
+    change,
+    key: entry.key,
+    chain: entry.chain,
+    address: entry.address,
+    status: entry.status,
+    category: entry.category,
+    tier: entry.tier,
+    confidence: entry.confidence,
+    entities: entry.entities,
+    firstSeen: entry.firstSeen,
+    sources: sources.map((s) => ({
+      sourceId: s.sourceId,
+      authority: s.authority,
+      jurisdiction: s.jurisdiction,
+      category: s.category,
+      basis: s.basis,
+      entity: s.entity,
+      programs: s.programs,
+      reference: s.reference,
+      listedAt: s.listedAt,
+    })),
+  }));
+  if (!docs.length) return;
+  const collection = await runWalletsCollection();
+  for (let i = 0; i < docs.length; i += WRITE_BATCH) {
+    await collection.insertMany(docs.slice(i, i + WRITE_BATCH), { ordered: false });
+  }
 }

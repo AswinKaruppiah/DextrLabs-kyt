@@ -187,11 +187,14 @@ export async function evaluateTransactionRisk({
   let summaryText = `Transaction of ${formatUsdt(amountUsdt)} on ${chainConfig.name} (${chainConfig.standard}) passed screening with low risk indicators.`;
   if (riskLevel === "CRITICAL") {
     const isOfac = riskIndicators.some(i => i.category === "SANCTIONS_OFAC");
-    const isFrozen = riskIndicators.some(i => i.category === "TETHER_FROZEN");
+    const frozen = riskIndicators.find(i => i.category === "TETHER_FROZEN");
+    const isTetherFreeze = frozen?.providers?.[0] === "TETHER ON-CHAIN";
     if (isOfac) {
       summaryText = `CRITICAL ALERT: Direct interaction with U.S. OFAC designated sanctioned entity on ${chainConfig.name}. Immediate freeze required under OFAC compliance regulations.`;
-    } else if (isFrozen) {
+    } else if (frozen && isTetherFreeze) {
       summaryText = `CRITICAL ALERT: Counterparty wallet is officially blacklisted on-chain by Tether on ${chainConfig.name} (${chainConfig.standard}). USDT transfer attempts will fail or expose the VASP to seized assets.`;
+    } else if (frozen) {
+      summaryText = `CRITICAL ALERT: Counterparty wallet is frozen on-chain by a stablecoin issuer (${frozen.entity}) on ${chainConfig.name}. Treat its funds as seized or illicit.`;
     } else {
       summaryText = `CRITICAL ALERT: Direct interaction with high-risk illicit finance entity on ${chainConfig.name}. Immediate compliance intervention required.`;
     }

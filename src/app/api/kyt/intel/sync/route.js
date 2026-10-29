@@ -4,7 +4,7 @@ import { getSyncJob, startSync } from "@/lib/collector/syncJob";
 /**
  * POST /api/kyt/intel/sync — start a background collection (or return the one already running).
  * Body (optional JSON):
- *   - only:         source ids to re-collect; the rest are merged from their last snapshot
+ *   - only:         source ids to re-collect; the rest keep their current listings
  *   - acceptShrink: source ids whose large record-count drop should be accepted
  * Responds 202 with the job; poll GET for progress.
  */

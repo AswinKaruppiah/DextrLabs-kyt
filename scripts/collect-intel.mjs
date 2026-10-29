@@ -10,7 +10,8 @@ try {
   }
 } catch {}
 
-const { runCollection, INTEL_DIR } = await import("../src/lib/collector/run.js");
+const { runCollection } = await import("../src/lib/collector/run.js");
+const { closeDb } = await import("../src/lib/collector/db.js");
 
 const listArg = (name) => {
   const arg = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -19,12 +20,17 @@ const listArg = (name) => {
 const only = listArg("only");
 const acceptShrink = listArg("accept-shrink") || [];
 
-console.log(`Collecting threat intelligence -> ${INTEL_DIR}`);
-const manifest = await runCollection({ only, acceptShrink });
+console.log("Collecting threat intelligence -> MongoDB");
+let run;
+try {
+  run = await runCollection({ only, acceptShrink });
+} finally {
+  await closeDb();
+}
 
-console.log(`\nDone in ${(manifest.durationMs / 1000).toFixed(1)}s`);
-const t = manifest.totals;
-console.log(`  entries: ${t.entries} (${t.active} active, ${t.delisted} delisted)`);
+console.log(`\nRun ${run.runId} done in ${(run.durationMs / 1000).toFixed(1)}s`);
+const t = run.totals;
+console.log(`  entries: ${t.entries} (${t.active} active, ${t.delisted} delisted), ${t.written} written`);
 console.log(`  since last run: +${t.added} new, ${t.newlyDelisted} delisted, ${t.relisted} re-listed`);
-for (const w of manifest.warnings) console.log(`  ! ${w.sourceId}: ${w.message}`);
-if (manifest.warnings.some((w) => w.kind !== "cross-check")) process.exitCode = 1;
+for (const w of run.warnings) console.log(`  ! ${w.sourceId}: ${w.message}`);
+if (run.warnings.some((w) => w.kind !== "cross-check")) process.exitCode = 1;

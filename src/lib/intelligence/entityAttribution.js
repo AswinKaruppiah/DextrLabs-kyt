@@ -139,7 +139,7 @@ export async function resolveEntity(address, chain = "TRON") {
 
   // Check static blacklist (covers ETH, BSC, and TRON fallback)
   if (!isTetherFrozen) {
-    const staticBlacklist = checkTetherBlacklist(cleanAddr, effectiveChain);
+    const staticBlacklist = await checkTetherBlacklist(cleanAddr, effectiveChain);
     if (staticBlacklist) {
       isTetherFrozen = true;
       tetherFreezeDetails = {
@@ -154,8 +154,15 @@ export async function resolveEntity(address, chain = "TRON") {
         frozenAt: staticBlacklist.frozenAt,
         fundsDestroyed: staticBlacklist.fundsDestroyed,
       };
+      // Frozen by another stablecoin issuer (Circle, Paxos, TrueUSD), not on the USDT contract.
+      if (!staticBlacklist.isTether) {
+        Object.assign(tetherFreezeDetails, { contract: null, method: "on-chain freeze list", issuer: staticBlacklist.issuer });
+      }
     }
   }
+  const freezeSource = tetherFreezeDetails?.issuer
+    ? `${tetherFreezeDetails.issuer} on-chain freeze list`
+    : `Tether Smart Contract ${chainConfig.standard} (${chainConfig.contract})`;
 
   // 2. Check official OFAC / NBCTF / International Sanctions Registry (TRON, ETH, BSC)
   const sanctions = await checkSanctions(cleanAddr, effectiveChain);
@@ -174,10 +181,7 @@ export async function resolveEntity(address, chain = "TRON") {
     ];
 
     if (isTetherFrozen) {
-      evidenceList.push({
-        source: `Tether Smart Contract ${chainConfig.standard} (${chainConfig.contract})`,
-        ...tetherFreezeDetails,
-      });
+      evidenceList.push({ source: freezeSource, ...tetherFreezeDetails });
     }
 
     return {
@@ -200,25 +204,22 @@ export async function resolveEntity(address, chain = "TRON") {
     return {
       address: cleanAddr,
       chain: effectiveChain,
-      entity: `Tether Blacklisted Wallet (${chainConfig.standard} Frozen)`,
+      entity: tetherFreezeDetails.issuer
+        ? `${tetherFreezeDetails.issuer} Frozen Wallet`
+        : `Tether Blacklisted Wallet (${chainConfig.standard} Frozen)`,
       category: RISK_CATEGORIES.TETHER_FROZEN,
       confidence: "VERIFIED_ON_CHAIN",
       isSanctioned: false,
       isTetherFrozen: true,
-      providers: ["TETHER ON-CHAIN"],
+      providers: [tetherFreezeDetails.issuer ? `${tetherFreezeDetails.issuer.toUpperCase()} ON-CHAIN` : "TETHER ON-CHAIN"],
       jurisdictions: [],
       fatfNexus: null,
-      evidence: [
-        {
-          source: `Tether Smart Contract ${chainConfig.standard} (${chainConfig.contract})`,
-          ...tetherFreezeDetails,
-        },
-      ],
+      evidence: [{ source: freezeSource, ...tetherFreezeDetails }],
     };
   }
 
   // 4. Check OSINT scam / phishing / hack labels from the intel database
-  const osint = lookupAddress(effectiveChain, cleanAddr)?.sources.filter((s) => OSINT_CATEGORY_MAP[s.category]) || [];
+  const osint = (await lookupAddress(effectiveChain, cleanAddr))?.sources.filter((s) => OSINT_CATEGORY_MAP[s.category]) || [];
   if (osint.length) {
     // Hack/exploit outranks scam/phishing when both are present.
     const primary = osint.find((s) => s.category === "HACK_EXPLOIT") || osint[0];

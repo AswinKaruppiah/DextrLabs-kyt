@@ -13,13 +13,13 @@ const PROVIDER_LABELS = {
 
 /**
  * Checks an address against the government sanctions sources in the collected intel
- * database (data/intel/addresses.json — see DATA_SOURCES.md).
+ * database (MongoDB intel_wallets — see DATA_SOURCES.md).
  * @param {string} address
  * @param {string} chain  "TRON" | "ETHEREUM" | "BSC"
  * @returns {Promise<object|null>}
  */
 export async function checkSanctions(address, chain) {
-  const entry = lookupAddress(chain, address);
+  const entry = await lookupAddress(chain, address);
   const designations = entry?.sources.filter((s) => s.category === "SANCTIONS") || [];
   if (!designations.length) return null;
 
