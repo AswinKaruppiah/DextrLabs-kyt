@@ -22,8 +22,13 @@ export const scamSniffer = {
   license: "GPL-3.0 — review before commercial redistribution",
   homepage: "https://github.com/scamsniffer/scam-database",
 
+  // The address lists stopped in Feb 2024 (the repo now only adds domains). all.json's `address` key
+  // is the last and largest copy (≈4.6k vs ≈2.5k in address.json); malformed entries fail validation.
   async collect() {
-    const list = await fetchJson(`${RAW}/scamsniffer/scam-database/main/blacklist/address.json`);
+    const { address: list } = await fetchJson(`${RAW}/scamsniffer/scam-database/main/blacklist/all.json`, {
+      timeoutMs: 180_000,
+    });
+    if (!Array.isArray(list) || !list.length) throw new Error("ScamSniffer all.json has no address list (format changed?)");
     return {
       items: list.map((address) => ({
         address,

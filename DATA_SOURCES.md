@@ -20,7 +20,7 @@ This document lists every external service the KYT collector pulls data from: wh
 | 6 | `il-nbctf` | Israel NBCTF (Ministry of Defense) | 1 | Crypto seizure & forfeiture orders | CSV (form export) | Anti-forgery token (automatic) | Free | 706 |
 | 7 | `tether-usdt-tron` | TronScan API | 2 | Tether USDT-TRC20 frozen addresses | JSON (paginated) | Optional key | Free | 8,035 |
 | 8 | `tether-usdt-eth` | Ethereum RPC (Tenderly public gateway) | 2 | Tether USDT-ERC20 frozen addresses (rebuilt from events) | JSON-RPC logs | None | Free | 2,828 |
-| 9 | `scamsniffer` | ScamSniffer (GitHub) | 4 | Drainer / phishing addresses | JSON | None | Free | 2,530 |
+| 9 | `scamsniffer` | ScamSniffer (GitHub) | 4 | Drainer / phishing addresses (frozen since 2024-02) | JSON | None | Free | 4,599 |
 | 10 | `mew-darklist` | MyEtherWallet (GitHub) | 4 | Community darklist | JSON | None | Free | 652 |
 | 11 | `eth-labels-phish-hack` | dawsbot/eth-labels (GitHub) | 4 | Etherscan "Phish / Hack" labels | JSON | None | Free | 5,594 |
 | 12 | `forta-labelled` | Forta Network (GitHub) | 4 | Phishing EOAs + malicious contracts and their deployers | CSV | None | Free | 7,891 |
@@ -30,7 +30,7 @@ This document lists every external service the KYT collector pulls data from: wh
 | 16 | `tusd-eth` | Ethereum RPC | 2 | TrueUSD blacklisted addresses (rebuilt from events) | JSON-RPC logs | None | Free | 4 |
 | 17 | `judicial-fraud-labels` | Mendeley Data (research dataset) | 3 | TRON fraud-platform and money-laundering broker wallets named in court judgments | CSV | None | Free (CC BY 4.0) | 642 |
 | 18 | `eth-labels-exploits` | dawsbot/eth-labels (GitHub, branch v1) | 4 | BSC heist/scam labels + Ethereum incident-exploit labels (Bybit, WazirX, …) | CSV | None | Free | 306 |
-| 19 | `defihacklabs` | SunWeb3Sec/DeFiHackLabs (GitHub) | 4 | Exploit attacker wallets and attack contracts (Ethereum + BSC incidents) | Solidity file headers | None | Free | 914 |
+| 19 | `defihacklabs` | SunWeb3Sec/DeFiHackLabs (GitHub) | 4 | Exploit attacker wallets and attack contracts (Ethereum + BSC incidents) | Solidity file headers | None | Free | 1,021 |
 
 **Tiers**
 - **Tier 1:** government sanctions, seizure orders and law-enforcement attributions. A sanctions match blocks.
@@ -39,35 +39,35 @@ This document lists every external service the KYT collector pulls data from: wh
 - **Tier 4:** OSINT, community and vendor labels. These raise the risk score but must never block on their own.
 - Tier 5 is reserved for community reports such as Chainabuse (not implemented).
 
-**Totals (merged, de-duplicated per chain, active):** 24,159 entries: 8,755 TRON, 14,678 Ethereum and 726 BSC.
+**Totals (merged, de-duplicated per chain, active):** 26,328 entries: 8,755 TRON, 16,795 Ethereum and 778 BSC.
 
 ### 1.1 Price and how often new data arrives
 
-The collector only fetches when a sync runs (the **Sync Feeds** button or `npm run collect:intel`); there is no schedule yet. "How often the publisher adds data" is how often a sync can expect to find something new. Last-change dates were checked on 2026-10-29.
+The collector only fetches when a sync runs (the **Sync Feeds** button or `npm run collect:intel`); there is no schedule yet. The rates below are **measured** on 2026-10-29 over the last ~6 months (on-chain events, stored listing dates, GitHub commit history), not taken from the publishers' claims. Every source is free; none needs a paid plan.
 
-| Source | Price | How often the publisher adds data | Last change seen |
-|---|---|---|---|
-| `ofac-sdn` — US OFAC SDN list | Free | Irregular; crypto designations a few times a month | 2026-10-28 (8 new addresses) |
-| `ofac-0xb10c` — OFAC extract | Free | Daily job; changes only when OFAC adds crypto addresses (≈ 1 day behind OFAC) | 2026-10-29 |
-| `eu-fsf` — EU sanctions | Free | Irregular, with each EU sanctions package; crypto addresses are rare | — |
-| `uk-sanctions-list` — UK FCDO | Free | Irregular, several updates a week; crypto addresses are rare | — |
-| `un-consolidated` — UN | Free | Irregular; no crypto addresses so far | — |
-| `il-nbctf` — Israel seizure orders | Free | New orders several times a month | — |
-| `fbi-ic3` — FBI announcements | Free | One-off notices; a new notice must be added to `fbiIc3.js` by hand | 2025-02-26 |
-| `tether-usdt-tron` — Tether TRON freezes | Free (optional TronScan key) | **Daily** — new freezes most days | 2026-10-29 (+32) |
-| `tether-usdt-eth` — Tether ETH freezes | Free (optional `ETH_RPC_URL`) | **Daily** | 2026-10-29 |
-| `circle-usdc-eurc-eth` — Circle freezes | Free | **Weekly or more** | 2026-10-28 |
-| `paxos-usdp-pyusd-eth` — Paxos freezes | Free | Rare | 2024-12 (USDP), 2024-06 (PYUSD) |
-| `tusd-eth` — TrueUSD freezes | Free | Rare | 2024 |
-| `judicial-fraud-labels` — court judgments | Free (CC BY 4.0, credit required) | Only when the authors publish a new version | v3, 2026-08 |
-| `defihacklabs` — exploit attackers | Free | **Weekly** — new incidents added most days | 2026-10-29 |
-| `eth-labels-exploits` — eth-labels CSV | Free | Every few months | 2026-07-10 |
-| `eth-labels-phish-hack` — eth-labels JSON | Free | **No longer updated** (old branch) | 2022-05-19 |
-| `scamsniffer` — ScamSniffer addresses | Free (GPL-3.0) | **No longer updated** (only domains are maintained now) | 2024-02-28 |
-| `mew-darklist` — MyEtherWallet | Free | **No longer updated** | 2020-11-18 |
-| `forta-labelled` — Forta | Free | **No longer updated** | 2023-01 |
+| Source | Price | New data per month (measured) | Last new data | Our URL is the current one? |
+|---|---|---|---|---|
+| `tether-usdt-tron` — Tether TRON freezes | Free (optional TronScan key) | **≈ 230–530 wallets** (≈ 10–17 a day) | 2026-10-28 | ✅ TronScan stablecoin blacklist API |
+| `tether-usdt-eth` — Tether ETH freezes | Free | **≈ 35–55 wallets** | 2026-10-28 | ✅ USDT contract events |
+| `circle-usdc-eurc-eth` — Circle freezes | Free | **≈ 5–310 wallets** (bursty; 557 in 6 months) | 2026-10-28 | ✅ USDC + EURC contract events |
+| `defihacklabs` — exploit attackers | Free (Apache-2.0) | **≈ 15–35 new incidents** | 2026-10-29 | ✅ `main` branch |
+| `ofac-sdn` — US OFAC SDN | Free | Whole list: several times a week. **Crypto addresses: about monthly** (TRON list changed 10× since June) | 2026-10-28 | ✅ OFAC Sanctions List Service |
+| `ofac-0xb10c` — OFAC extract | Free (MIT) | Same as OFAC, ≈ 1 day later | 2026-10-29 | ✅ `lists` branch |
+| `il-nbctf` — Israel seizure orders | Free | **≈ 1 new order a month** (11 in 2025, 7 so far in 2026), each with many wallets | 2026 | ✅ |
+| `uk-sanctions-list` — UK FCDO | Free (OGL v3) | Whole list: several times a week; crypto addresses rare | report 2026-10-27 | ✅ single UK Sanctions List CSV |
+| `eu-fsf` — EU sanctions | Free | With each EU package; crypto addresses rare | file 2026-10-23 | ✅ FSF XML |
+| `un-consolidated` — UN | Free | Irregular; no crypto addresses so far | file 2026-10-28 | ✅ |
+| `fbi-ic3` — FBI announcements | Free (public domain) | One-off notices; a new notice is added to `fbiIc3.js` by hand | 2025-02-26 | ✅ |
+| `eth-labels-exploits` — eth-labels CSV | Free (MIT) | About twice a year | 2026-07-10 | ✅ `v1` branch (maintained) |
+| `judicial-fraud-labels` — court judgments | Free (CC BY 4.0, credit required) | Only when the authors publish a new version (v1 Jun 2026, v3 Aug 2026) | 2026-08-03 | ✅ latest version via API |
+| `paxos-usdp-pyusd-eth` — Paxos freezes | Free | **0 in the last 6 months** | 2024-12 (USDP), 2024-06 (PYUSD) | ✅ |
+| `tusd-eth` — TrueUSD freezes | Free | **0 in the last 6 months** | 2024 | ✅ |
+| `scamsniffer` — ScamSniffer | Free (GPL-3.0) | **0 — address lists frozen.** The repo updates daily with phishing *domains* only; fresh addresses are only in their paid real-time API | 2024-02 (addresses) | ✅ `all.json → address` (largest frozen copy) |
+| `eth-labels-phish-hack` — eth-labels JSON | Free (MIT) | **0 — frozen** (no maintained replacement: the `v1` export has no Ethereum phish-hack label) | 2022-05-19 | ⚠️ legacy `master` branch, kept as a static snapshot |
+| `mew-darklist` — MyEtherWallet | Free (MIT) | **0 — frozen** | 2020-11-18 | ✅ |
+| `forta-labelled` — Forta | Free (MIT) | **0 — frozen** | 2023-01-26 | ✅ |
 
-**In short:** Tether (TRON + ETH), Circle and DeFiHackLabs bring new wallets every week or day; government lists change irregularly; four OSINT lists (≈ 16.7k wallets) are frozen in time — their wallets stay in the database but nothing new will come from them.
+**In short:** new wallets come mainly from **Tether TRON (hundreds a month), Tether ETH and Circle (tens to hundreds), DeFiHackLabs and OFAC**. Paxos and TUSD rarely freeze. Four OSINT lists (≈ 19k wallets) are frozen in time — their wallets stay in the database and are still screened, but nothing new will come from them; a daily sync is enough to keep up with every live source.
 
 ---
 
@@ -255,10 +255,11 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | | |
 |---|---|
 | Provider | ScamSniffer, a Web3 anti-scam vendor |
-| Data URL | `https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/address.json` |
+| Data URL | `https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/all.json` → `address` key |
 | Docs | https://github.com/scamsniffer/scam-database |
-| Format | JSON array of EVM addresses |
+| Format | JSON object (~10 MB); `address` is an array of ≈4.6k EVM addresses (a few malformed entries fail validation) |
 | Pricing | Free |
+| ⚠️ Freshness | **Address lists frozen since February 2024** (README). The repo still updates daily, but only `domains`. `all.json → address` is the last and largest copy (`address.json` has only ≈2.5k). Live addresses are only in ScamSniffer's paid real-time Blocklist API |
 | ⚠️ License | **GPL-3.0.** Have legal review this before redistributing the data in a commercial product |
 | Output | `intel_wallets` → `sources.sourceId: "scamsniffer"` |
 
@@ -270,6 +271,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Docs | https://github.com/MyEtherWallet/ethereum-lists |
 | Format | JSON `[{ address, comment, date }]` |
 | Pricing | Free, MIT |
+| ⚠️ Freshness | **Frozen since 2020-11-18.** Kept as a static snapshot |
 | Output | `intel_wallets` → `sources.sourceId: "mew-darklist"` |
 
 ### 3.12 eth-labels, Etherscan "Phish / Hack" (`eth-labels-phish-hack`)
@@ -280,6 +282,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Docs | https://github.com/dawsbot/eth-labels |
 | Format | JSON `[{ address, nameTag }]`. A mirror of Etherscan's public label cloud |
 | Pricing | Free, MIT |
+| ⚠️ Freshness | **Frozen since 2022-05-19** on the legacy `master` branch. The maintained `v1` export has no Ethereum phish-hack label (only other chains), so there is no replacement; kept as a static snapshot. `v1`'s exploit labels are read by `eth-labels-exploits` |
 | Note | Category `HACK_EXPLOIT` (e.g. "Bancor Hacker") |
 | Output | `intel_wallets` → `sources.sourceId: "eth-labels-phish-hack"` |
 
@@ -294,7 +297,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | ⚠️ Freshness | **Static snapshot, last updated 2023-01.** Useful history, but it receives no new data |
 | Output | `intel_wallets` → `sources.sourceId: "forta-labelled"` |
 
-### 3.13 FBI IC3 announcements (`fbi-ic3`)
+### 3.14 FBI IC3 announcements (`fbi-ic3`)
 | | |
 |---|---|
 | What | Addresses the FBI publishes in IC3 public service announcements. Currently PSA250226: 51 Ethereum addresses used to launder the Bybit hack (DPRK TraderTraitor / Lazarus) |
@@ -304,7 +307,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Mirroring | Yes, EVM addresses are also recorded on BSC (`evm-mirror`) |
 | Output | `intel_wallets` → `sources.sourceId: "fbi-ic3"`, category `HACK_EXPLOIT` |
 
-### 3.14 Other stablecoin issuer freezes (`circle-usdc-eurc-eth`, `paxos-usdp-pyusd-eth`, `tusd-eth`)
+### 3.15 Other stablecoin issuer freezes (`circle-usdc-eurc-eth`, `paxos-usdp-pyusd-eth`, `tusd-eth`)
 | | |
 |---|---|
 | What | Addresses frozen on-chain by stablecoin issuers other than Tether, rebuilt from contract events exactly like `tether-usdt-eth` (same RPC providers, full history then incremental, weekly rescan) |
@@ -314,7 +317,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Notes | Issuers' own token contracts (frozen so tokens can't get stuck there) are skipped. Unfreezes remove the address |
 | Output | `intel_wallets` → category `ISSUER_FREEZE`. Screening names the issuer (e.g. "Circle Internet Financial Frozen Wallet") |
 
-### 3.15 Court-judgment fraud addresses (`judicial-fraud-labels`)
+### 3.16 Court-judgment fraud addresses (`judicial-fraud-labels`)
 | | |
 |---|---|
 | What | Wallets named in criminal judgments on crypto fraud and money laundering: roles `fraud platform`, `pseudo broker` (laundering), `illegal broker` |
@@ -324,7 +327,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Freshness | Static research dataset (v3, Aug 2026) |
 | Output | `intel_wallets` → category `SCAM_PHISHING`, tier 3 |
 
-### 3.16 eth-labels exploit labels (`eth-labels-exploits`)
+### 3.17 eth-labels exploit labels (`eth-labels-exploits`)
 | | |
 |---|---|
 | What | From eth-labels' maintained CSV export: BSC (chainId 56) `heist` and `scam` labels, and Ethereum `*-exploit` labels (Bybit, WazirX, BingX, Filament, …). The `blocked` label is ignored (null/placeholder addresses) |
@@ -332,12 +335,12 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Pricing / license | Free, MIT |
 | Output | `intel_wallets` → `HACK_EXPLOIT` (heist, exploit) / `SCAM_PHISHING` (scam) |
 
-### 3.17 DeFiHackLabs (`defihacklabs`)
+### 3.18 DeFiHackLabs (`defihacklabs`)
 | | |
 |---|---|
 | What | Attacker wallets and attack contracts from ~900 reproduced DeFi exploits. Only Ethereum and BSC incidents are kept (chain from the explorer links in the header, or the PoC's fork) |
 | Data | File list via `https://api.github.com/repos/SunWeb3Sec/DeFiHackLabs/git/trees/main?recursive=1` (one unauthenticated GitHub API call per run), then each `src/test/<YYYY-MM>/*.sol` from raw.githubusercontent.com |
-| Format | Header comments `// Attacker : 0x…`, `// Attack Contract : 0x…`, `// Attack Tx : https://etherscan.io/…` |
+| Format | Header comments in the first 60 lines: `// Attacker : 0x…` (also `Attacker1`, `Attacker EOA`, `Exploiter`, `Hacker`), `// Attack Contract : 0x…` (also `Attack ctrt`, `Exploit contract`), `// Attack Tx : https://etherscan.io/…`. Lines about the victim, vulnerable contract, profit or tx are ignored, and 64-hex tx hashes are never read as addresses. Chain from explorer links, else from `createSelectFork(...)` (`mainnet`, `bsc`, `*_ARCHIVE`, env/RPC names) |
 | Pricing / license | Free, Apache-2.0 (repository) |
 | Filtering | Incidents mentioning a whitehat, and known whitehat rescue bots (e.g. c0ffeebabe.eth), are skipped |
 | Output | `intel_wallets` → category `HACK_EXPLOIT`, `listedAt` = incident month, `details.lost` / `details.attackTx` |
