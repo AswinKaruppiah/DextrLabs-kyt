@@ -9,8 +9,18 @@ import { tetherTron } from "./tetherTron.js";
 import { tetherEth } from "./tetherEth.js";
 import { circleEth, paxosEth, tusdEth } from "./stablecoinFreezes.js";
 import { judicialFraud } from "./judicialFraud.js";
-import { ethLabels, ethLabelsExploits, fortaLabels, mewDarklist, scamSniffer } from "./osint.js";
+import {
+  drainerDaas,
+  ethLabels,
+  ethLabelsExploits,
+  fortaLabels,
+  hfEthFraud,
+  mewDarklist,
+  poisonHunter,
+  scamSniffer,
+} from "./osint.js";
 import { defiHackLabs } from "./defiHackLabs.js";
+import { lazarusTayvano } from "./lazarusTayvano.js";
 
 /**
  * Every collection source, highest tier first.
@@ -38,7 +48,11 @@ export const SOURCES = [
   ethLabels,
   ethLabelsExploits,
   fortaLabels,
+  hfEthFraud,
+  poisonHunter,
+  drainerDaas,
   defiHackLabs,
+  lazarusTayvano,
 ];
 
 export const getSource = (id) => SOURCES.find((s) => s.id === id);

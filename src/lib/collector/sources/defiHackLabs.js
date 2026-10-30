@@ -85,7 +85,7 @@ function parseIncident(source) {
   };
 }
 
-async function mapLimit(list, limit, fn) {
+export async function mapLimit(list, limit, fn) {
   const out = new Array(list.length);
   let next = 0;
   await Promise.all(

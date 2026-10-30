@@ -4,7 +4,7 @@ This document lists every external service the KYT collector pulls data from: wh
 
 > **Scope:** USDT risk addresses on **TRON, Ethereum and BSC** only.
 > **Cost:** every source below is **free**. No paid API, subscription or API key is required.
-> **Last verified:** 2026-10-29. Counts below are from that run.
+> **Last verified:** 2026-10-29 (sources 1–19) and 2026-10-30 (`hf-eth-fraud`, `poison-hunter`, `drainer-daas`, `lazarus-tayvano`). Counts below are from those runs.
 
 ---
 
@@ -31,6 +31,10 @@ This document lists every external service the KYT collector pulls data from: wh
 | 17 | `judicial-fraud-labels` | Mendeley Data (research dataset) | 3 | TRON fraud-platform and money-laundering broker wallets named in court judgments | CSV | None | Free (CC BY 4.0) | 642 |
 | 18 | `eth-labels-exploits` | dawsbot/eth-labels (GitHub, branch v1) | 4 | BSC heist/scam labels + Ethereum incident-exploit labels (Bybit, WazirX, …) | CSV | None | Free | 306 |
 | 19 | `defihacklabs` | SunWeb3Sec/DeFiHackLabs (GitHub) | 4 | Exploit attacker wallets and attack contracts (Ethereum + BSC incidents) | Solidity file headers | None | Free | 1,021 |
+| 20 | `hf-eth-fraud` | fesevu/ethereum_fraud_dataset_by_activity (Hugging Face) | 4 | Aggregated Ethereum phishing / scam / hack labels (wallets and phishing contracts) | CSV, zstd-compressed | None | Free (CC BY 4.0) | 51,348 (39,210 new) |
+| 21 | `poison-hunter` | DS2L/Poison-Hunter (GitHub, ACM CCS'24) | 4 | Ethereum address-poisoning look-alike / attacker addresses | TXT + CSV | None | Free (no licence file) | 6,019 (6,016 new) |
+| 22 | `drainer-daas` | blocksecteam/DaaS_dataset (GitHub, IMC'25) | 4 | Drainer-as-a-Service operators, affiliates and profit-sharing contracts | TXT (`.log`) | None | Free (no licence file) | 8,051 (6,724 new) |
+| 23 | `lazarus-tayvano` | tayvano/lazarus-bluenoroff-research (GitHub) | 4 | Lazarus / DPRK heist, laundering and IT-worker wallets | Markdown write-ups | None | Free (CC0) | 7,278 (6,882 new): ETH 6,665 · TRON 399 · BSC 215 |
 
 **Tiers**
 - **Tier 1:** government sanctions, seizure orders and law-enforcement attributions. A sanctions match blocks.
@@ -39,7 +43,7 @@ This document lists every external service the KYT collector pulls data from: wh
 - **Tier 4:** OSINT, community and vendor labels. These raise the risk score but must never block on their own.
 - Tier 5 is reserved for community reports such as Chainabuse (not implemented).
 
-**Totals (merged, de-duplicated per chain, active):** 26,328 entries: 8,755 TRON, 16,795 Ethereum and 778 BSC.
+**Totals (merged, de-duplicated per chain, active):** 85,189 entries: 9,106 TRON, 75,092 Ethereum and 991 BSC (2026-10-30, after adding `hf-eth-fraud`, `poison-hunter`, `drainer-daas` and `lazarus-tayvano`; before them: 26,328).
 
 ### 1.1 Price and how often new data arrives
 
@@ -66,6 +70,10 @@ The collector only fetches when a sync runs (the **Sync Feeds** button or `npm r
 | `eth-labels-phish-hack` — eth-labels JSON | Free (MIT) | **0 — frozen** (no maintained replacement: the `v1` export has no Ethereum phish-hack label) | 2022-05-19 | ⚠️ legacy `master` branch, kept as a static snapshot |
 | `mew-darklist` — MyEtherWallet | Free (MIT) | **0 — frozen** | 2020-11-18 | ✅ |
 | `forta-labelled` — Forta | Free (MIT) | **0 — frozen** | 2023-01-26 | ✅ |
+| `hf-eth-fraud` — Hugging Face fraud dataset | Free (CC BY 4.0, credit required) | **0 — static** (one release) | 2025-08 | ✅ `addr_labels_balanced.csv.zst` |
+| `poison-hunter` — Poison-Hunter | Free (no licence file) | **0 — static** (one release) | 2025-04 | ✅ `main` branch |
+| `drainer-daas` — Drainer-as-a-Service | Free (no licence file) | **0 — static** (one release) | 2025-11 | ✅ `main` branch |
+| `lazarus-tayvano` — Lazarus / DPRK notes | Free (CC0) | **New write-ups as DPRK heists happen** (repo commits weekly or more) | 2026-10-30 | ✅ `main` branch |
 
 **In short:** new wallets come mainly from **Tether TRON (hundreds a month), Tether ETH and Circle (tens to hundreds), DeFiHackLabs and OFAC**. Paxos and TUSD rarely freeze. Four OSINT lists (≈ 19k wallets) are frozen in time — their wallets stay in the database and are still screened, but nothing new will come from them; a daily sync is enough to keep up with every live source.
 
@@ -345,6 +353,52 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Filtering | Incidents mentioning a whitehat, and known whitehat rescue bots (e.g. c0ffeebabe.eth), are skipped |
 | Output | `intel_wallets` → category `HACK_EXPLOIT`, `listedAt` = incident month, `details.lost` / `details.attackTx` |
 
+### 3.19 Hugging Face Ethereum fraud dataset (`hf-eth-fraud`)
+| | |
+|---|---|
+| What | A research aggregate of public Ethereum scam lists (MEW, ScamSniffer, Forta, CryptoScamDB, Etherscan labels via brianleect, Kaggle, XBlock, BlockSec's PTXPhish and SIGMETRICS'25 phishing contracts). About 37k of the rows are phishing **contracts**, not wallets |
+| Data URL | `https://huggingface.co/datasets/fesevu/ethereum_fraud_dataset_by_activity/resolve/main/addr_labels_balanced.csv.zst` (3.8 MB). It holds every `is_scam=1` row of the 100 MB `addr_labels_big.csv.zst` (54,653 addresses), so the small file is used |
+| Docs | https://huggingface.co/datasets/fesevu/ethereum_fraud_dataset_by_activity |
+| Format | zstd-compressed CSV: `address, is_scam, description, activity_start_ts, activity_end_ts, is_contract`. Decompressed with `fzstd` (Node 20 has no built-in zstd) |
+| Pricing / license | Free, CC BY 4.0 (credit the dataset). ⚠️ Some upstream lists it merges have no licence of their own |
+| Filtering | Only `is_scam=1`. Dropped as not-scammers: `Parity Bug` (frozen-wallet victims), Etherscan `take-action` hack alerts (≈3.1k users with approvals open to a hacked contract, e.g. Multichain) and `Spam Token` airdrops |
+| Freshness | Static, last modified 2025-08 |
+| Output | `intel_wallets` → `HACK_EXPLOIT` when the description says exploit / heist / hack, else `SCAM_PHISHING`; `entity` = description + `(wallet)` / `(contract)` |
+
+### 3.20 Poison-Hunter address-poisoning attackers (`poison-hunter`)
+| | |
+|---|---|
+| What | Ethereum address-poisoning look-alike addresses from the ACM CCS'24 paper "Characterizing Ethereum Address Poisoning Attack" (Guan & Li) |
+| Data URLs | `https://raw.githubusercontent.com/DS2L/Poison-Hunter/main/phishing_address_groundtruth.txt` (5,890 addresses labelled by both Etherscan and Forta, one per line) and `…/phishing_transfers_sample.csv` (only the `attacker` column: 129 more) |
+| Not used | `benign_addresses_on_etherscan.txt` (the paper's safe set), `phishing_address_we_detected_TP.txt` (subset of the ground truth), and the sample's `victim` / token columns |
+| Docs | https://github.com/DS2L/Poison-Hunter |
+| Pricing / license | Free to download. ⚠️ **No licence file**, so all rights are reserved by default; ask the authors before commercial use. The full detected set is "available on request" |
+| Freshness | Static, last commit 2025-04-11 |
+| Output | `intel_wallets` → `SCAM_PHISHING`, confidence 70 |
+
+### 3.21 Drainer-as-a-Service (`drainer-daas`)
+| | |
+|---|---|
+| What | Wallets and contracts behind wallet-drainer kits, from the IMC'25 paper "Unmasking the Shadow Economy: A Deep Dive into Drainer-as-a-Service Phishing on Ethereum" (He et al., BlockSec). Identified from the kits' on-chain profit-sharing payments |
+| Data URLs | `https://raw.githubusercontent.com/blocksecteam/DaaS_dataset/main/{operator_accounts,affiliate_accounts,profit_sharing_contracts}.log` — one address per line: 56 operators, 6,087 affiliates (the phishers renting the kit), 1,910 profit-sharing contracts |
+| Not used | `profit_sharing_transactions.log` (5.8 MB of transaction records — the evidence, not addresses) |
+| Docs | https://github.com/blocksecteam/DaaS_dataset |
+| Pricing / license | Free to download. ⚠️ **No licence file**, so all rights are reserved by default; ask the authors before commercial use |
+| Freshness | Static, last commit 2025-11-28 |
+| Output | `intel_wallets` → `SCAM_PHISHING`, confidence 70; `entity` says operator / affiliate / profit-sharing contract |
+
+### 3.22 Lazarus / DPRK research notes (`lazarus-tayvano`)
+| | |
+|---|---|
+| What | Theft, laundering, Tornado Cash, dusting and IT-worker wallets from North Korean (Lazarus / BlueNoroff / IT-worker) crypto heists, kept by researcher Tayvano. One markdown write-up per incident; each address line carries a free-text role (`- 0x… - Direct Theft`) |
+| Data | File list via `https://api.github.com/repos/tayvano/lazarus-bluenoroff-research/git/trees/main?recursive=1` (one unauthenticated GitHub API call per run), then each `hacks-and-thefts/*.md` and `dprk-it-workers/*.md` from `https://raw.githubusercontent.com/tayvano/lazarus-bluenoroff-research/main/…` (≈300 files, ≈4 MB) |
+| Not used | `more-hacks-and-thefts/` (mixes in incidents the author marks "Not DPRK" and non-crime tracking such as the PulseX / Richard Heart file), `pdfs/`, `images/`, `malicious-shit/`, the Bitcoin-only CSVs, and the `.txt` Telegram dumps in `dprk-it-workers/` |
+| Filtering | Skipped sections: victims, compromised / impacted / at-risk wallets, Atomic Wallet's "Theft Addresses + Amt Stolen" (the victim list), "Receives From" counterparties, whitehat and "not DPRK" sections. Skipped roles: victim, "interacted with" / "approved" a drainer, exchange and swap-service deposits (Binance, OKX, KuCoin, HTX, ChangeNOW, FixedFloat, THORSwap, SideShift, …), multisig / hot / cold wallets, token contracts, protocols and routers |
+| Chain | `T…` → TRON; `0x…` → BSC when the line says BSC/BNB, else Ethereum (the notes often don't say which EVM chain) |
+| Pricing / license | Free, **CC0-1.0** (no restrictions, commercial use allowed) |
+| Freshness | Actively updated (commits weekly or more; last 2026-10-30) |
+| Output | `intel_wallets` → `HACK_EXPLOIT`, tier 4, confidence 70; `entity` = `Lazarus / DPRK — <incident> (<role>)`, `programs` = incident, `listedAt` = the write-up's `Date::` line, reference = the write-up on GitHub |
+
 ---
 
 ## 4. Data model
@@ -477,6 +531,8 @@ When a publisher drops an address, the next sync keeps it: that source's record 
 | TronScan security API / GoPlus address security | Per-address lookups only (no bulk list); suited to live screening, not to the database. TronScan's flags did not mark sanctioned or seized TRON wallets in a 2026-10-29 test | https://apilist.tronscanapi.com · https://gopluslabs.io |
 | Chainabuse | Free key is 10 calls/month; partner access by request. Largest source of TRON scam reports | https://docs.chainabuse.com/ |
 | DeFiLlama hacks | Incident list without addresses | https://api.llama.fi/hacks |
+| **Blockscout metadata tags** (on hold) | ≈ 71.6k ETH + 2.3k BSC phish/hack, poisoning, ChainPatrol tags; free, keyless, but no published terms for the tag data and the labels come from third parties (Etherscan-style `Fake_Phishing`, Match Systems). Paused 2026-10-30 until the terms are confirmed. A full crawl is ≈ 1,700 requests (50 per page, sorted by address, no "since" filter) | https://metadata.services.blockscout.com/api/v1/addresses?slug=phish--hack&tagType=generic&chainId=1 |
+| CMU address-poisoning dataset (USENIX Sec '25) | ≈ 6.5M ETH look-alike addresses, but CC BY-NC-ND (non-commercial) | https://kilthub.cmu.edu/articles/dataset/Blockchain_Address_Poisoning_Companion_Dataset_/29212703/1 |
 
 ---
 
