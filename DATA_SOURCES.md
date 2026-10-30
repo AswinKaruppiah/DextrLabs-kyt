@@ -3,6 +3,7 @@
 This document lists every external service the KYT collector pulls data from: what each one provides, what it costs, where its documentation is, and where the collected data is stored.
 
 > **Scope:** USDT risk addresses on **TRON, Ethereum and BSC** only.
+> **Token rule (2026-10-30):** USDT is the core. Wallet-level lists (sanctions, hacks, scams) are token-agnostic and in scope. For issuer **freeze lists** we keep only Tether USDT plus the three major USD stablecoin lists already built (Circle USDC/EURC, Paxos USDP/PYUSD, TrueUSD) — they catch risky wallets Tether hasn't frozen (≈16% of the wallets only they flag have used USDT). **No other token freeze lists are added** (PAXG, BUSD, USDG, cbBTC, kBTC, JPYSC, OKB, StablR, …).
 > **Cost:** every source below is **free**. No paid API, subscription or API key is required.
 > **Last verified:** 2026-10-29 (sources 1–19) and 2026-10-30 (`hf-eth-fraud`, `poison-hunter`, `drainer-daas`, `lazarus-tayvano`). Counts below are from those runs.
 
@@ -26,7 +27,7 @@ This document lists every external service the KYT collector pulls data from: wh
 | 12 | `forta-labelled` | Forta Network (GitHub) | 4 | Phishing EOAs + malicious contracts and their deployers | CSV | None | Free | 7,891 |
 | 13 | `fbi-ic3` | FBI IC3 public service announcements | 1 | Addresses the FBI attributes to hacks / laundering (Bybit, DPRK Lazarus) | HTML | None | Free | 51 (×2 with BSC mirror) |
 | 14 | `circle-usdc-eurc-eth` | Ethereum RPC | 2 | Circle USDC + EURC frozen addresses (rebuilt from events) | JSON-RPC logs | None | Free | 667 |
-| 15 | `paxos-usdp-pyusd-eth` | Ethereum RPC | 2 | Paxos USDP + PayPal PYUSD frozen addresses (rebuilt from events) | JSON-RPC logs | None | Free | 166 |
+| 15 | `paxos-usdp-pyusd-eth` | Ethereum RPC | 2 | Paxos USDP + PayPal PYUSD frozen addresses (rebuilt from events) | JSON-RPC logs | None | Free | 320 |
 | 16 | `tusd-eth` | Ethereum RPC | 2 | TrueUSD blacklisted addresses (rebuilt from events) | JSON-RPC logs | None | Free | 4 |
 | 17 | `judicial-fraud-labels` | Mendeley Data (research dataset) | 3 | TRON fraud-platform and money-laundering broker wallets named in court judgments | CSV | None | Free (CC BY 4.0) | 642 |
 | 18 | `eth-labels-exploits` | dawsbot/eth-labels (GitHub, branch v1) | 4 | BSC heist/scam labels + Ethereum incident-exploit labels (Bybit, WazirX, …) | CSV | None | Free | 306 |
@@ -43,7 +44,7 @@ This document lists every external service the KYT collector pulls data from: wh
 - **Tier 4:** OSINT, community and vendor labels. These raise the risk score but must never block on their own.
 - Tier 5 is reserved for community reports such as Chainabuse (not implemented).
 
-**Totals (merged, de-duplicated per chain, active):** 85,189 entries: 9,106 TRON, 75,092 Ethereum and 991 BSC (2026-10-30, after adding `hf-eth-fraud`, `poison-hunter`, `drainer-daas` and `lazarus-tayvano`; before them: 26,328).
+**Totals (merged, de-duplicated per chain, active):** 85,232 entries: 9,106 TRON, 75,135 Ethereum and 991 BSC (2026-10-30, after adding `hf-eth-fraud`, `poison-hunter`, `drainer-daas` and `lazarus-tayvano` and fixing the Paxos `FreezeAddress` bug; before them: 26,328).
 
 ### 1.1 Price and how often new data arrives
 
@@ -64,7 +65,7 @@ The collector only fetches when a sync runs (the **Sync Feeds** button or `npm r
 | `fbi-ic3` — FBI announcements | Free (public domain) | One-off notices; a new notice is added to `fbiIc3.js` by hand | 2025-02-26 | ✅ |
 | `eth-labels-exploits` — eth-labels CSV | Free (MIT) | About twice a year | 2026-07-10 | ✅ `v1` branch (maintained) |
 | `judicial-fraud-labels` — court judgments | Free (CC BY 4.0, credit required) | Only when the authors publish a new version (v1 Jun 2026, v3 Aug 2026) | 2026-08-03 | ✅ latest version via API |
-| `paxos-usdp-pyusd-eth` — Paxos freezes | Free | **0 in the last 6 months** | 2024-12 (USDP), 2024-06 (PYUSD) | ✅ |
+| `paxos-usdp-pyusd-eth` — Paxos freezes | Free | **≈ 10 freeze events a month** (268 `FreezeAddress` events since mid-2024; many wallets are frozen on both tokens). Earlier "0" was our bug: the upgraded contracts emit `FreezeAddress`, which the collector did not read until 2026-10-30 | 2026-10-30 | ✅ |
 | `tusd-eth` — TrueUSD freezes | Free | **0 in the last 6 months** | 2024 | ✅ |
 | `scamsniffer` — ScamSniffer | Free (GPL-3.0) | **0 — address lists frozen.** The repo updates daily with phishing *domains* only; fresh addresses are only in their paid real-time API | 2024-02 (addresses) | ✅ `all.json → address` (largest frozen copy) |
 | `eth-labels-phish-hack` — eth-labels JSON | Free (MIT) | **0 — frozen** (no maintained replacement: the `v1` export has no Ethereum phish-hack label) | 2022-05-19 | ⚠️ legacy `master` branch, kept as a static snapshot |
@@ -75,7 +76,7 @@ The collector only fetches when a sync runs (the **Sync Feeds** button or `npm r
 | `drainer-daas` — Drainer-as-a-Service | Free (no licence file) | **0 — static** (one release) | 2025-11 | ✅ `main` branch |
 | `lazarus-tayvano` — Lazarus / DPRK notes | Free (CC0) | **New write-ups as DPRK heists happen** (repo commits weekly or more) | 2026-10-30 | ✅ `main` branch |
 
-**In short:** new wallets come mainly from **Tether TRON (hundreds a month), Tether ETH and Circle (tens to hundreds), DeFiHackLabs and OFAC**. Paxos and TUSD rarely freeze. Four OSINT lists (≈ 19k wallets) are frozen in time — their wallets stay in the database and are still screened, but nothing new will come from them; a daily sync is enough to keep up with every live source.
+**In short:** new wallets come mainly from **Tether TRON (hundreds a month), Tether ETH and Circle (tens to hundreds), Paxos (about ten), DeFiHackLabs and OFAC**. TUSD rarely freezes. Four OSINT lists (≈ 19k wallets) are frozen in time — their wallets stay in the database and are still screened, but nothing new will come from them; a daily sync is enough to keep up with every live source.
 
 ---
 
@@ -319,7 +320,7 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | | |
 |---|---|
 | What | Addresses frozen on-chain by stablecoin issuers other than Tether, rebuilt from contract events exactly like `tether-usdt-eth` (same RPC providers, full history then incremental, weekly rescan) |
-| Contracts / events | **Circle:** USDC `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, EURC `0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c` — `Blacklisted(address)` / `UnBlacklisted(address)`. **Paxos:** USDP `0x8E870D67F660D95d5be530380D0eC0bd388289E1`, PYUSD `0x6c3ea9036406852006290770BEdFcAbA0e23A0e8` — `AddressFrozen` / `AddressUnfrozen` / `FrozenAddressWiped`. **TrueUSD:** `0x0000000000085d4780B73119b644AE5ecd22b376` — `Blacklisted(address,bool)` (true = freeze) |
+| Contracts / events | **Circle:** USDC `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, EURC `0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c` — `Blacklisted(address)` / `UnBlacklisted(address)`. **Paxos:** USDP `0x8E870D67F660D95d5be530380D0eC0bd388289E1`, PYUSD `0x6c3ea9036406852006290770BEdFcAbA0e23A0e8` — `AddressFrozen` (original contracts) and `FreezeAddress` (upgraded contracts: PYUSD from Jun 2024, USDP from Dec 2024) / `AddressUnfrozen` (and `UnfreezeAddress`, not yet seen) / `FrozenAddressWiped`. Changing a source's contracts or events makes its next run rescan the full history (`notes.filterKey`). **TrueUSD:** `0x0000000000085d4780B73119b644AE5ecd22b376` — `Blacklisted(address,bool)` (true = freeze) |
 | Format | `eth_getLogs`; the affected address is topic 1. Each record's `details.freezes` holds the freeze tx / block per token |
 | Pricing / license | Free, public on-chain data |
 | Notes | Issuers' own token contracts (frozen so tokens can't get stuck there) are skipped. Unfreezes remove the address |

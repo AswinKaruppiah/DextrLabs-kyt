@@ -127,10 +127,17 @@ export async function syncContractLogs({ previous, startBlock, address, topics }
   const { head } = await headBlock();
   const safeHead = head - CONFIRMATIONS;
 
+  // Which contracts/events were read. When a source starts watching a new contract or event,
+  // history read under the old filter lacks those logs, so the next run rescans from startBlock.
+  const filterKey = `${[...filter.contracts].sort().join(",")}|${[...topics].sort().join(",")}`;
+
   const prevNotes = previous?.notes || {};
   const canResume = Number.isInteger(prevNotes.lastBlock) && previous?.records?.length > 0;
   const rescanDue =
-    !canResume || !prevNotes.lastFullScanAt || Date.now() - Date.parse(prevNotes.lastFullScanAt) > FULL_RESCAN_MS;
+    !canResume ||
+    prevNotes.filterKey !== filterKey ||
+    !prevNotes.lastFullScanAt ||
+    Date.now() - Date.parse(prevNotes.lastFullScanAt) > FULL_RESCAN_MS;
 
   let mode;
   let fetched;
@@ -168,6 +175,8 @@ export async function syncContractLogs({ previous, startBlock, address, topics }
       fromBlock: mode === "full" ? startBlock : prevNotes.lastBlock + 1,
       lastBlock: safeHead,
       lastFullScanAt,
+      // Only a completed full scan proves the history matches this filter.
+      filterKey: mode === "full" ? filterKey : prevNotes.filterKey,
       events: logs.length,
       providers: fetched.providers,
       emptyChecks: fetched.emptyChecks,

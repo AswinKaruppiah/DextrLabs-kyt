@@ -8,6 +8,10 @@ const TOPIC = {
   UNBLACKLISTED: "0x117e3210bb9aa7d9baff172026820255c6f6c30ba8999d1c2fd88e2848137c4e", // UnBlacklisted(address)
   FROZEN: "0x90811a8edd3b3c17eeaefffc17f639cc69145d41a359c9843994dc2538203690", // AddressFrozen(address)
   UNFROZEN: "0xc3776b472ebf54114339eec9e4dc924e7ce307a97f5c1ee72b6d474e6e5e8b7c", // AddressUnfrozen(address)
+  // Paxos' upgraded contracts (PYUSD from Jun 2024, USDP from Dec 2024) emit these instead of
+  // AddressFrozen; AddressUnfrozen and FrozenAddressWiped are unchanged.
+  FREEZE_ADDRESS: "0x1aa660498c83ea285bc55e4cfc00afcaa7120798db87b74f3c0d7c6e001bc392", // FreezeAddress(address)
+  UNFREEZE_ADDRESS: "0x150465b020dfc06a59269da94ed66db9b65a516cf4fdd5f583b0f12752339bbe", // UnfreezeAddress(address)
   WIPED: "0xfc5960f1c5a5d2b60f031bf534af053b1bf7d9881989afaeb8b1d164db23aede", // FrozenAddressWiped(address)
   BLACKLIST_SET: "0xcf3473b85df1594d47b6958f29a32bea0abff9dd68296f7bf33443646793cfd8", // Blacklisted(address,bool)
 };
@@ -124,7 +128,13 @@ export const paxosEth = issuerFreezeSource({
     "0x8E870D67F660D95d5be530380D0eC0bd388289E1": "USDP",
     "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8": "PYUSD",
   },
-  events: { [TOPIC.FROZEN]: "freeze", [TOPIC.UNFROZEN]: "unfreeze", [TOPIC.WIPED]: "wipe" },
+  events: {
+    [TOPIC.FROZEN]: "freeze",
+    [TOPIC.FREEZE_ADDRESS]: "freeze",
+    [TOPIC.UNFROZEN]: "unfreeze",
+    [TOPIC.UNFREEZE_ADDRESS]: "unfreeze",
+    [TOPIC.WIPED]: "wipe",
+  },
   startBlock: 6_000_000, // before USDP (Paxos Standard) launched
 });
 
