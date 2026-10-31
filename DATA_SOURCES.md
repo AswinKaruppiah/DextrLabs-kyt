@@ -518,6 +518,8 @@ When a publisher drops an address, the next sync keeps it: that source's record 
 
 ## 6. Sources considered but not used
 
+Sources that need the owner's written permission first (Blockscout, the Bybit Lazarus bounty feed, the CMU address-poisoning dataset) are tracked, with ready-to-send request emails, in [PERMISSION_REQUESTS.md](PERMISSION_REQUESTS.md).
+
 | Source | Why not | Link |
 |---|---|---|
 | **OpenSanctions** | Bulk data is free for **non-commercial use only** (CC BY-NC), and commercial use needs a paid license. We pull the same government lists directly instead | https://www.opensanctions.org/licensing/ |
