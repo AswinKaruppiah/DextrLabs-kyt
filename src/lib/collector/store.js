@@ -1,6 +1,6 @@
 import { syncRunsCollection, walletsCollection } from "./db.js";
 import { getSource } from "./sources/index.js";
-import { addressKey } from "./util/address.js";
+import { addressKey, normalizeAddress } from "./util/address.js";
 
 // Newest first; wallets found in the same run are ordered most severe first.
 const DIRECTORY_SORT = { firstSeen: -1, tier: 1, confidence: -1, _id: 1 };
@@ -40,7 +40,24 @@ export async function lookupAddressHistory(chain, address) {
   return entry;
 }
 
-const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/**
+ * Batch version of lookupAddress for exposure screening: one query for many counterparties.
+ * @returns {Promise<Map<string, object>>} normalized address -> entry (active sources only); unlisted addresses are absent
+ */
+export async function lookupAddresses(chain, addresses) {
+  const found = new Map();
+  if (!chain || !addresses.length) return found;
+  const wallets = await walletsCollection();
+  const keys = [...new Set(addresses.map((a) => addressKey(chain, a)))];
+  const entries = await wallets.find({ _id: { $in: keys }, status: "active" }, { projection: HIDDEN_FIELDS }).toArray();
+  for (const entry of entries) {
+    const sources = entry.sources.filter((s) => s.status !== "removed");
+    if (sources.length) found.set(normalizeAddress(entry.address), { ...entry, sources });
+  }
+  return found;
+}
+
+const escapeRegex =(s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const facet = (wallets, match, field, { array = false } = {}) =>
   wallets

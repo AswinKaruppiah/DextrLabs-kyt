@@ -2,10 +2,141 @@
 
 import React, { useState } from "react";
 import HopFlowGraph from "./HopFlowGraph";
+import ScreeningStepsGuide from "./ScreeningStepsGuide";
 import {
   SUPPORTED_CHAINS,
   getExplorerAddressUrl,
+  getExplorerTxUrl,
 } from "@/lib/chains/chainConfig";
+
+// Verdict banner per risk level. HIGH / MEDIUM come from counterparty exposure or OSINT labels;
+// only the wallet's own sanctions / freeze listing is CRITICAL.
+const VERDICTS = {
+  CRITICAL: {
+    icon: "🚨",
+    title: "BAD / SANCTIONED WALLET",
+    action: "DO NOT TRANSACT",
+    panel: "bg-red-950/70 border-red-500/40 text-red-100",
+    badge: "bg-red-500 text-white border-red-400",
+  },
+  HIGH: {
+    icon: "⚠️",
+    title: "HIGH RISK / EXPOSED WALLET",
+    action: "MANUAL REVIEW",
+    panel: "bg-orange-950/70 border-orange-500/40 text-orange-100",
+    badge: "bg-orange-500 text-white border-orange-400",
+  },
+  MEDIUM: {
+    icon: "⚠️",
+    title: "CAUTION / INDIRECT EXPOSURE",
+    action: "REVIEW REQUIRED",
+    panel: "bg-amber-950/70 border-amber-500/40 text-amber-100",
+    badge: "bg-amber-500 text-slate-950 border-amber-400",
+  },
+  LOW: {
+    icon: "✅",
+    title: "GOOD / LOW RISK WALLET",
+    action: "OK TO TRANSACT",
+    panel: "bg-emerald-950/70 border-emerald-500/40 text-emerald-100",
+    badge: "bg-emerald-500 text-white border-emerald-400",
+  },
+};
+
+const LEVEL_PILL = {
+  HIGH: "bg-orange-500/15 text-orange-300 border-orange-500/40",
+  MEDIUM: "bg-amber-500/15 text-amber-300 border-amber-500/40",
+  LOW: "bg-slate-500/15 text-slate-300 border-slate-500/40",
+};
+
+const usd = (n) => `$${Math.round(n || 0).toLocaleString("en-US")}`;
+
+/** Counterparty exposure findings and what the trace covered. */
+function ExposurePanel({ result }) {
+  const coverage = result.exposure;
+  if (!coverage) return null;
+  const findings = (result.riskIndicators || []).filter((i) => i.kind === "EXPOSURE");
+  const { hop1, hop2 } = coverage;
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+          Counterparty Exposure ({findings.length} finding{findings.length === 1 ? "" : "s"})
+        </h3>
+        {coverage.status !== "complete" && (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
+            {coverage.status === "partial" ? "Partial trace" : "Trace unavailable"}
+          </span>
+        )}
+      </div>
+
+      {hop1 && (
+        <p className="text-[11px] text-slate-400 leading-relaxed">
+          Hop 1: {hop1.transfers.toLocaleString()} transfers with {hop1.counterparties.toLocaleString()} wallets ({usd(hop1.volumeUsd)} volume)
+          {hop1.truncated && " — newest 1,000 per direction only"}
+          {hop2 && (
+            <>
+              {" "}&bull; Hop 2: followed {hop2.followed} of the largest counterparties ({hop2.counterparties.toLocaleString()} more wallets)
+              {hop2.truncated > 0 && `, ${hop2.truncated} of them from their newest 1,000 transfers only`}
+            </>
+          )}
+          {hop1.dustIgnored > 0 && <> &bull; {hop1.dustIgnored} incoming dust transfers ignored</>}
+          {hop1.cached && <> &bull; history cached {new Date(hop1.fetchedAt).toLocaleString()}</>}
+        </p>
+      )}
+
+      {findings.length === 0 && coverage.status !== "unavailable" && (
+        <p className="text-xs text-emerald-300">No transfers with sanctioned, frozen or scam-listed wallets found within 2 hops.</p>
+      )}
+
+      {findings.map((f) => (
+        <div key={f.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${LEVEL_PILL[f.severity] || LEVEL_PILL.LOW}`}>
+              {f.severity}
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-300 border border-slate-700">
+              Hop {f.hopDistance}
+            </span>
+            <span className="text-xs font-semibold text-white">{f.categoryLabel}</span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">{f.reason}</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-mono">
+            <a
+              href={getExplorerAddressUrl(result.chain, f.counterparty)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cyan-400 hover:underline"
+            >
+              Listed wallet {f.counterparty.slice(0, 8)}…{f.counterparty.slice(-6)} &#x2197;
+            </a>
+            {f.sampleTx && (
+              <a
+                href={getExplorerTxUrl(result.chain, f.sampleTx.hash)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:underline"
+              >
+                Largest tx {usd(f.sampleTx.usd)} &#x2197;
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {coverage.errors.length > 0 && (
+        <details className="text-[11px] text-amber-300/80">
+          <summary className="cursor-pointer">{coverage.errors.length} trace issue(s)</summary>
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            {coverage.errors.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
 
 export default function ScreeningSimulator({ targetAddress = "", targetChain = "" }) {
   const [selectedChain, setSelectedChain] = useState("TRON");
@@ -176,7 +307,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
             )}
           </div>
           <p className="text-[11px] text-slate-400">
-            Instantly checks against OFAC sanctions, Tether smart contract blacklist, and verified scam clusters.
+            Checks the wallet against sanctions, stablecoin freeze and scam lists, then traces who it moved USDT with (2 hops).
           </p>
         </div>
 
@@ -197,7 +328,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
             {loading ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
-                Evaluating on {currentChainConfig.name}...
+                Tracing counterparties on {currentChainConfig.name}...
               </>
             ) : (
               <>Check Wallet on {currentChainConfig.name} &rarr;</>
@@ -206,76 +337,65 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
         </div>
       </form>
 
+      {/* How the check works (static, so users know how the verdict is reached) */}
+      <ScreeningStepsGuide />
+
       {/* Real-time Screening Results Display */}
       {result && (
         <div className="p-5 rounded-xl bg-slate-950 border border-slate-800 space-y-5 animate-in fade-in duration-200">
           
           {/* Big Unmistakable Good vs Bad Verdict Banner */}
-          <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-            result.riskScore >= 70
-              ? "bg-red-950/70 border-red-500/40 text-red-100"
-              : result.riskScore <= 20
-              ? "bg-emerald-950/70 border-emerald-500/40 text-emerald-100"
-              : "bg-amber-950/70 border-amber-500/40 text-amber-100"
-          }`}>
-            <div className="flex items-center space-x-3.5">
-              <span className="text-3xl">
-                {result.riskScore >= 70 ? "🚨" : result.riskScore <= 20 ? "✅" : "⚠️"}
-              </span>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm font-black uppercase tracking-wider">
-                    {result.riskScore >= 70
-                      ? "BAD / SANCTIONED WALLET"
-                      : result.riskScore <= 20
-                      ? "GOOD / SAFE WALLET"
-                      : "CAUTION / HIGH RISK"}
-                  </span>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-black/40 border border-white/10 font-mono">
-                    Score: {result.riskScore}/100
-                  </span>
-                </div>
-                <p className="text-xs mt-0.5 opacity-90 font-medium">
-                  {result.riskScore >= 70
-                    ? `Threat: ${result.riskIndicators?.[0]?.entity || result.highestRiskCategory?.label || "Sanctions / Blacklist"} • Action: ${result.finalAction || result.recommendedAction}`
-                    : result.riskScore <= 20
-                    ? "Safe to transact. Zero sanctions, Tether blacklist, or illicit cluster records found."
-                    : "Enhanced due diligence required. Exposure to unhosted or shadow counterparty."}
-                </p>
-                {/* Detected Authorities Badges */}
-                {result.riskIndicators?.[0]?.providers?.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300">
-                      Designations:
-                    </span>
-                    {result.riskIndicators[0].providers.map((prov, i) => (
-                      <span
-                        key={i}
-                        className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-900/40 text-red-300 border border-red-500/50"
-                      >
-                        {prov}
+          {(() => {
+            const v = VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
+            const listing = result.riskIndicators?.find((i) => i.kind !== "EXPOSURE");
+            return (
+              <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${v.panel}`}>
+                <div className="flex items-center space-x-3.5">
+                  <span className="text-3xl">{v.icon}</span>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-black uppercase tracking-wider">{v.title}</span>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-black/40 border border-white/10 font-mono">
+                        Score: {result.riskScore}/100
                       </span>
-                    ))}
-                    {result.riskIndicators[0].fatfNexus && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/40 text-amber-300 border border-amber-500/50">
-                        {result.riskIndicators[0].fatfNexus}
-                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5 opacity-90 font-medium">
+                      {result.riskLevel === "CRITICAL"
+                        ? `Threat: ${listing?.entity || "Sanctions / Blacklist"} • Action: ${result.finalAction || result.recommendedAction}`
+                        : result.riskLevel === "LOW"
+                        ? "Not on any sanctions, freeze or scam list, and no significant exposure to listed wallets."
+                        : "Not listed itself, but has moved USDT with listed wallets. See counterparty exposure below."}
+                    </p>
+                    {/* Detected Authorities Badges (the wallet's own listing) */}
+                    {listing?.providers?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-300">
+                          Designations:
+                        </span>
+                        {listing.providers.map((prov, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-900/40 text-red-300 border border-red-500/50"
+                          >
+                            {prov}
+                          </span>
+                        ))}
+                        {listing.fatfNexus && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/40 text-amber-300 border border-amber-500/50">
+                            {listing.fatfNexus}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border shrink-0 text-center ${
-              result.riskScore >= 70
-                ? "bg-red-500 text-white border-red-400"
-                : result.riskScore <= 20
-                ? "bg-emerald-500 text-white border-emerald-400"
-                : "bg-amber-500 text-slate-950 border-amber-400"
-            }`}>
-              {result.riskScore >= 70 ? "DO NOT TRANSACT" : result.riskScore <= 20 ? "VERIFIED SAFE" : "REVIEW REQUIRED"}
-            </span>
-          </div>
+                <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border shrink-0 text-center ${v.badge}`}>
+                  {v.action}
+                </span>
+              </div>
+            );
+          })()}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-3">
             <div className="flex items-center space-x-3">
@@ -313,6 +433,8 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           <p className="text-xs font-medium text-slate-200 leading-relaxed bg-slate-900/60 p-3 rounded-lg border border-slate-800/80">
             {result.summary}
           </p>
+
+          <ExposurePanel result={result} />
 
           {/* Flow Graph for Simulator Result */}
           <HopFlowGraph evaluation={result} />

@@ -1,6 +1,6 @@
 /**
  * TRON and TRC-20 USDT Utility Module
- * Target Smart Contract: TR7NHqJEKQxGTCi8q8ZY4pL8otSzgjLj6t (USDT on TRON)
+ * Target Smart Contract: TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t (USDT on TRON)
  * Precision: 6 decimals (1 USDT = 1,000,000 SUN)
  */
 

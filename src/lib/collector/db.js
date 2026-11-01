@@ -9,6 +9,7 @@ const state = (globalThis.__kytMongo ??= { client: null, ready: null });
  *  - intel_sync_runs:   one document per collection run: when, per-source status, warnings, errors
  *  - intel_run_wallets: one document per wallet a run added, delisted, re-listed or changed sources on
  *  - intel_sync_errors: one document per source that failed during a run (or per run that crashed)
+ *  - transfer_cache:    one wallet's recent USDT transfers (`_id` = key), fetched for exposure screening; expires after 24 h
  */
 export function getDb() {
   if (!state.ready) {
@@ -38,6 +39,11 @@ export const walletsCollection = async () => (await getDb()).collection("intel_w
 export const syncRunsCollection = async () => (await getDb()).collection("intel_sync_runs");
 export const runWalletsCollection = async () => (await getDb()).collection("intel_run_wallets");
 export const syncErrorsCollection = async () => (await getDb()).collection("intel_sync_errors");
+export const transferCacheCollection = async () => (await getDb()).collection("transfer_cache");
+
+// How long fetched transfer history is reused. Only raw transfers are cached, never a verdict:
+// labels change with every sync, so exposure is recomputed on each screening.
+export const TRANSFER_CACHE_TTL_S = 24 * 60 * 60;
 
 async function ensureIndexes(db) {
   await Promise.all([
@@ -53,6 +59,7 @@ async function ensureIndexes(db) {
     db.collection("intel_sync_errors").createIndex({ failedAt: -1 }),
     db.collection("intel_sync_errors").createIndex({ sourceId: 1, failedAt: -1 }),
     db.collection("intel_sync_errors").createIndex({ runId: 1 }),
+    db.collection("transfer_cache").createIndex({ fetchedAt: 1 }, { expireAfterSeconds: TRANSFER_CACHE_TTL_S }),
   ]);
 }
 

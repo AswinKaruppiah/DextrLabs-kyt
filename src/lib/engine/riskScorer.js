@@ -1,5 +1,6 @@
 import { resolveEntity, RISK_CATEGORIES } from "../intelligence/entityAttribution";
 import { formatUsdt } from "../tron/tronUtils";
+import { analyzeExposure } from "../exposure/exposure";
 import {
   SUPPORTED_CHAINS,
   detectChainFromAddress,
@@ -103,9 +104,25 @@ export async function evaluateTransactionRisk({
     }
   }
 
-  // 4. Multi-hop upstream/downstream tracing
+  // 4. Counterparty exposure from the sender's own transfer history (hop 1 + hop 2).
+  // Skipped when the wallet is already listed as sanctioned / frozen: the verdict can't get worse.
+  const hasCustomHops = Array.isArray(customHops) && customHops.length > 0;
+  let exposure = null;
+  if (!hasCustomHops && from && !senderEntity.isSanctioned && !senderEntity.isTetherFrozen) {
+    exposure = await analyzeExposure(effectiveChain, from);
+    for (const ind of exposure.indicators) {
+      riskIndicators.push(ind);
+      if (ind.score > highestScore) {
+        highestScore = ind.score;
+        highestCategory = RISK_CATEGORIES[ind.category];
+      }
+    }
+  }
+  const topExposure = exposure?.indicators[0] || null;
+
+  // 5. Multi-hop upstream/downstream tracing
   const flowPath = [];
-  if (customHops && Array.isArray(customHops) && customHops.length > 0) {
+  if (hasCustomHops) {
     for (const hop of customHops) {
       const hopEntity = await resolveEntity(hop.address, effectiveChain);
       const decay = HOP_DECAY[hop.hopDistance] || 0.1;
@@ -150,10 +167,28 @@ export async function evaluateTransactionRisk({
       flowPath.push(
         { hopDistance: 1, address: to, entity: recipientEntity.entity, category: recipientEntity.category, exposurePercentage: 100 }
       );
+    } else if (topExposure) {
+      // Path to the most serious listed counterparty: wallet -> (intermediary) -> listed wallet
+      if (topExposure.via) {
+        flowPath.push({
+          hopDistance: 1,
+          address: topExposure.via.address,
+          entity: "Intermediary wallet",
+          category: RISK_CATEGORIES.CLEAN_UNHOSTED,
+          exposurePercentage: 100,
+        });
+      }
+      flowPath.push({
+        hopDistance: topExposure.hopDistance,
+        address: topExposure.counterparty,
+        entity: topExposure.entity,
+        category: RISK_CATEGORIES[topExposure.category],
+        exposurePercentage: topExposure.exposurePercentage,
+      });
     }
   }
 
-  // 5. Calculate Final Score (0 - 100)
+  // 6. Calculate Final Score (0 - 100)
   let finalScore = highestScore;
   const isSenderFlagged = senderEntity.isSanctioned || senderEntity.isTetherFrozen;
   const isRecipientFlagged = recipientEntity && (recipientEntity.isSanctioned || recipientEntity.isTetherFrozen);
@@ -164,7 +199,7 @@ export async function evaluateTransactionRisk({
   }
   finalScore = Math.min(100, Math.max(0, finalScore));
 
-  // 6. Determine Risk Tier & Recommended Action
+  // 7. Determine Risk Tier & Recommended Action
   let riskLevel = "LOW";
   let recommendedAction = "APPROVE";
   let badgeColor = "#10B981";
@@ -183,7 +218,7 @@ export async function evaluateTransactionRisk({
     badgeColor = "#EAB308";
   }
 
-  // 7. Generate Glass Box Rationale Summary
+  // 8. Generate Glass Box Rationale Summary
   let summaryText = `Transaction of ${formatUsdt(amountUsdt)} on ${chainConfig.name} (${chainConfig.standard}) passed screening with low risk indicators.`;
   if (riskLevel === "CRITICAL") {
     const isOfac = riskIndicators.some(i => i.category === "SANCTIONS_OFAC");
@@ -202,6 +237,15 @@ export async function evaluateTransactionRisk({
     summaryText = `HIGH RISK: Transaction on ${chainConfig.name} exhibits direct or layered exposure to fraudulent operations (scam compound, drainer, or hack exploit). Mandatory SAR review required.`;
   } else if (riskLevel === "MEDIUM") {
     summaryText = `MEDIUM RISK: Counterparty on ${chainConfig.name} identified as unlicensed shadow broker or high-risk OTC liquidity pool. Enhanced Due Diligence (EDD) recommended.`;
+  }
+  // When the level comes from counterparty exposure (not the wallet's own listing), say so.
+  if (topExposure && topExposure.score === highestScore && riskLevel !== "CRITICAL") {
+    const more = exposure.indicators.length - 1;
+    const action = { HIGH: "Mandatory SAR review required.", MEDIUM: "Enhanced Due Diligence (EDD) recommended.", LOW: "Noted for context; no action required." }[riskLevel];
+    summaryText =
+      `${riskLevel} RISK on ${chainConfig.name}: wallet is not listed itself, but has counterparty exposure. ${topExposure.reason}` +
+      (more > 0 ? ` (+${more} more exposure finding${more > 1 ? "s" : ""}.)` : "") +
+      ` ${action}`;
   }
 
   const generatedTxHash = txHash || `${effectiveChain}_SIM_${Date.now()}`;
@@ -248,6 +292,8 @@ export async function evaluateTransactionRisk({
         }
       : null,
     riskIndicators: riskIndicators,
+    exposure: exposure ? exposure.coverage : null,
+    exposureGraph: exposure?.graph || null,
     flowPath: flowPath,
     highestRiskCategory: highestCategory ? highestCategory.id : "NONE",
   };
