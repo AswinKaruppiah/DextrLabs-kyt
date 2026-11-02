@@ -105,20 +105,28 @@ export async function evaluateTransactionRisk({
   }
 
   // 4. Counterparty exposure from the sender's own transfer history (hop 1 + hop 2).
-  // Skipped when the wallet is already listed as sanctioned / frozen: the verdict can't get worse.
+  // Always traced. When the wallet is itself sanctioned / frozen the verdict can't get worse, so
+  // its findings are returned as `networkFindings` (information only, not scored) and hop 2
+  // follows where its money went.
   const hasCustomHops = Array.isArray(customHops) && customHops.length > 0;
+  const senderListed = senderEntity.isSanctioned || senderEntity.isTetherFrozen;
   let exposure = null;
-  if (!hasCustomHops && from && !senderEntity.isSanctioned && !senderEntity.isTetherFrozen) {
-    exposure = await analyzeExposure(effectiveChain, from);
-    for (const ind of exposure.indicators) {
-      riskIndicators.push(ind);
-      if (ind.score > highestScore) {
-        highestScore = ind.score;
-        highestCategory = RISK_CATEGORIES[ind.category];
+  let networkFindings = null;
+  if (!hasCustomHops && from) {
+    exposure = await analyzeExposure(effectiveChain, from, { followOutflows: senderListed });
+    if (senderListed) {
+      networkFindings = exposure.indicators;
+    } else {
+      for (const ind of exposure.indicators) {
+        riskIndicators.push(ind);
+        if (ind.score > highestScore) {
+          highestScore = ind.score;
+          highestCategory = RISK_CATEGORIES[ind.category];
+        }
       }
     }
   }
-  const topExposure = exposure?.indicators[0] || null;
+  const topExposure = (!senderListed && exposure?.indicators[0]) || null;
 
   // 5. Multi-hop upstream/downstream tracing
   const flowPath = [];
@@ -294,6 +302,7 @@ export async function evaluateTransactionRisk({
     riskIndicators: riskIndicators,
     exposure: exposure ? exposure.coverage : null,
     exposureGraph: exposure?.graph || null,
+    networkFindings,
     flowPath: flowPath,
     highestRiskCategory: highestCategory ? highestCategory.id : "NONE",
   };

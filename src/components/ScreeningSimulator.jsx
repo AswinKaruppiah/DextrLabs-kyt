@@ -54,15 +54,22 @@ const usd = (n) => `$${Math.round(n || 0).toLocaleString("en-US")}`;
 function ExposurePanel({ result }) {
   const coverage = result.exposure;
   if (!coverage) return null;
-  const findings = (result.riskIndicators || []).filter((i) => i.kind === "EXPOSURE");
+  // A listed wallet's findings come back separately: shown for investigation, not scored.
+  const infoOnly = Array.isArray(result.networkFindings);
+  const findings = infoOnly ? result.networkFindings : (result.riskIndicators || []).filter((i) => i.kind === "EXPOSURE");
   const { hop1, hop2 } = coverage;
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-          Counterparty Exposure ({findings.length} finding{findings.length === 1 ? "" : "s"})
+          {infoOnly ? "Listed Wallet's Network" : "Counterparty Exposure"} ({findings.length} finding{findings.length === 1 ? "" : "s"})
         </h3>
+        {infoOnly && (
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-900/40 text-sky-300 border border-sky-500/40">
+            Information only
+          </span>
+        )}
         {coverage.status !== "complete" && (
           <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
             {coverage.status === "partial" ? "Partial trace" : "Trace unavailable"}
@@ -70,13 +77,20 @@ function ExposurePanel({ result }) {
         )}
       </div>
 
+      {infoOnly && (
+        <p className="text-[11px] text-sky-300/90 leading-relaxed">
+          This wallet is listed itself, so these findings don&apos;t change the score. They show who it dealt with; hop 2
+          follows the wallets it sent the most USDT to first (where its money went), then its largest counterparties.
+        </p>
+      )}
+
       {hop1 && (
         <p className="text-[11px] text-slate-400 leading-relaxed">
           Hop 1: {hop1.transfers.toLocaleString()} transfers with {hop1.counterparties.toLocaleString()} wallets ({usd(hop1.volumeUsd)} volume)
           {hop1.truncated && " — newest 1,000 per direction only"}
           {hop2 && (
             <>
-              {" "}&bull; Hop 2: followed {hop2.followed} of the largest counterparties ({hop2.counterparties.toLocaleString()} more wallets)
+              {" "}&bull; Hop 2: followed {hop2.followed} of the {infoOnly ? "largest recipients / counterparties" : "largest counterparties"} ({hop2.counterparties.toLocaleString()} more wallets)
               {hop2.truncated > 0 && `, ${hop2.truncated} of them from their newest 1,000 transfers only`}
             </>
           )}

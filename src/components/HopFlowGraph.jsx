@@ -302,6 +302,12 @@ export default function HopFlowGraph({ evaluation }) {
             {evaluation.tokenStandard ? ` (${evaluation.tokenStandard} on ${evaluation.chainName})` : ""}. Drag to pan,
             scroll to zoom, click a wallet for details.
           </p>
+          {Array.isArray(evaluation.networkFindings) && (
+            <p className="text-[11px] mt-1 text-sky-300">
+              This wallet is listed itself. The graph shows its network for investigation and doesn&apos;t change the score;
+              hop 2 follows the wallets it sent the most to first, then its largest counterparties.
+            </p>
+          )}
           {/* Node truncation: say how many wallets are grouped instead of drawn */}
           <p className={`text-[11px] mt-1 ${grouped.length ? "text-amber-300" : "text-slate-500"}`}>
             {grouped.length ? "⚠ Graph truncated: " : ""}

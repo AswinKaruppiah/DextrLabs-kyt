@@ -241,9 +241,12 @@ const withDeadline = (promise, deadline) =>
  *
  * @param {string} chain  "TRON" | "ETHEREUM" | "BSC"
  * @param {string} address
+ * @param {object} [opts]
+ * @param {boolean} [opts.followOutflows] hop 2 follows the clean wallets this one sent the most to
+ *   (where its money went) instead of the largest by total volume. Used for already-listed wallets.
  * @returns {Promise<{indicators: object[], coverage: object, graph: object|null}>}
  */
-export async function analyzeExposure(chain, address) {
+export async function analyzeExposure(chain, address, { followOutflows = false } = {}) {
   const self = normalizeAddress(address.trim());
   const coverage = { status: "complete", hop1: null, hop2: null, errors: [] };
 
@@ -307,10 +310,15 @@ export async function analyzeExposure(chain, address) {
   };
 
   // ---- Hop 2: counterparties of the largest clean counterparties
-  const candidates = [...hop1.byCp.values()]
-    .filter((a) => !risky1.has(a.cp) && a.inUsd + a.outUsd >= EXPOSURE_RULES.hop2MinUsd)
-    .sort((a, b) => b.inUsd + b.outUsd - (a.inUsd + a.outUsd))
-    .slice(0, EXPOSURE_RULES.hop2FanOut);
+  const pick = (weight, taken = []) =>
+    [...hop1.byCp.values()]
+      .filter((a) => !risky1.has(a.cp) && !taken.includes(a) && weight(a) >= EXPOSURE_RULES.hop2MinUsd)
+      .sort((a, b) => weight(b) - weight(a))
+      .slice(0, EXPOSURE_RULES.hop2FanOut - taken.length);
+  const byVolume = (a) => a.inUsd + a.outUsd;
+  // A frozen wallet often only receives, so remaining slots go to the largest by volume.
+  const outflows = followOutflows ? pick((a) => a.outUsd) : [];
+  const candidates = [...outflows, ...pick(byVolume, outflows)];
 
   const deadline = Date.now() + EXPOSURE_RULES.hop2DeadlineMs;
   // TronGrid's free key allows ~15 req/s and pages 200 at a time, so fewer TRON wallets at once.

@@ -46,7 +46,8 @@ const STEPS = [
     title: "Who did they trade with? (hop 2)",
     text:
       `For the ${R.hop2FanOut} largest clean counterparties (at least ${usd(R.hop2MinUsd)} moved), we read their transfers ` +
-      `too and check their counterparties.`,
+      `too and check their counterparties. If the wallet is listed itself, both hops still run for information ` +
+      `(not scored), and hop 2 follows the wallets it sent the most to first.`,
     chips: [
       `Busy wallets (over ${LIMIT} transfers) are traced on their newest ${LIMIT} per direction`,
       { warn: true, text: GRAPH_NOTE },
