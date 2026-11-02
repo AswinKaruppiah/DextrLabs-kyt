@@ -1,9 +1,9 @@
 # Data Source Cost & Permission Check
 
-The 23 threat-intel sources used by the collector (`npm run collect:intel`), checked on 2026-11-02.
+The 24 threat-intel sources used by the collector (`npm run collect:intel`), checked on 2026-11-02.
 
-- **Cost:** all 23 are free. None needs a paid plan.
-- **Permission:** 19 can be used as they are. 4 need written permission before commercial use (rows 20–23).
+- **Cost:** all 24 are free. None needs a paid plan.
+- **Permission:** 20 can be used as they are (row 24 with conditions). 4 need written permission before commercial use (rows 20–23).
 
 | # | Source | Pay? | Permission? |
 |---|---|---|---|
@@ -30,6 +30,7 @@ The 23 threat-intel sources used by the collector (`npm run collect:intel`), che
 | 21 | eth-labels exploits | Free | ⚠️ Needed (Etherscan) |
 | 22 | Poison-Hunter | Free | ⚠️ Needed (authors) |
 | 23 | Drainer-as-a-Service | Free | ⚠️ Needed (BlockSec authors) |
+| 24 | Elliptic Binance hack blocklist | Free | ✅ Not needed for screening (credit Elliptic, don't redistribute) |
 
 ---
 
@@ -70,6 +71,23 @@ A public repo isn't the same as free to use. A licence (MIT, Apache, CC0, …) i
 Poison-Hunter has one more issue: its addresses were also labelled using Etherscan, so part of its data has the same problem as 20 and 21.
 
 **What to do:** email the authors and ask for permission. Researchers often agree, especially if we credit their paper. Track the requests in [PERMISSION_REQUESTS.md](PERMISSION_REQUESTS.md).
+
+## Why 24 is OK, with conditions (Elliptic)
+
+[Elliptic's Binance hack 2026 blocklist page](https://www.elliptic.co/binance-hack-2026-blocklist/) calls the CSV a **free data feed** ("free, needs no account or API key") and tells people how to use it:
+
+> **Compliance teams:** add the addresses to the blocklist or watchlist in your screening or transaction monitoring system.
+> **Engineering teams:** fetch the file on a schedule, for example hourly, and replace your copy each time.
+
+That is exactly what the collector and screening do. The page has **no licence or terms** (only "© Elliptic Enterprises Limited") and says the list "isn't a sanctions or risk screening check". So:
+
+| ✅ OK | ❌ Don't |
+|---|---|
+| Screening wallets and transactions against it | Offer the full list as a bulk download or resell it |
+| Showing "flagged by Elliptic" on a match, with a link to their page | Use Elliptic's logo or suggest a partnership |
+| Treating a match as a review flag (tier 4) | Block on an Elliptic match alone |
+
+It covers one incident and will stop updating once Elliptic's tracing ends (their Bybit list ran ~2.5 months). It lives in its own module ([ellipticBinanceHack.js](src/lib/collector/sources/ellipticBinanceHack.js)) so it can be removed by deleting that file and its line in `sources/index.js`. Keep a dated copy of the page as a record of the invitation; remove the source if Elliptic ever objects.
 
 ---
 

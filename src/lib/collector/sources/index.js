@@ -21,6 +21,7 @@ import {
 } from "./osint.js";
 import { defiHackLabs } from "./defiHackLabs.js";
 import { lazarusTayvano } from "./lazarusTayvano.js";
+import { ellipticBinanceHack } from "./ellipticBinanceHack.js";
 
 /**
  * Every collection source, highest tier first.
@@ -53,6 +54,7 @@ export const SOURCES = [
   drainerDaas,
   defiHackLabs,
   lazarusTayvano,
+  ellipticBinanceHack,
 ];
 
 export const getSource = (id) => SOURCES.find((s) => s.id === id);

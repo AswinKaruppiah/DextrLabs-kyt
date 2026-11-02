@@ -5,7 +5,7 @@ This document lists every external service the KYT collector pulls data from: wh
 > **Scope:** USDT risk addresses on **TRON, Ethereum and BSC** only.
 > **Token rule (2026-10-30):** USDT is the core. Wallet-level lists (sanctions, hacks, scams) are token-agnostic and in scope. For issuer **freeze lists** we keep only Tether USDT plus the three major USD stablecoin lists already built (Circle USDC/EURC, Paxos USDP/PYUSD, TrueUSD) — they catch risky wallets Tether hasn't frozen (≈16% of the wallets only they flag have used USDT). **No other token freeze lists are added** (PAXG, BUSD, USDG, cbBTC, kBTC, JPYSC, OKB, StablR, …).
 > **Cost:** every source below is **free**. No paid API, subscription or API key is required.
-> **Last verified:** 2026-10-29 (sources 1–19) and 2026-10-30 (`hf-eth-fraud`, `poison-hunter`, `drainer-daas`, `lazarus-tayvano`). Counts below are from those runs.
+> **Last verified:** 2026-10-29 (sources 1–19) and 2026-10-30 (`hf-eth-fraud`, `poison-hunter`, `drainer-daas`, `lazarus-tayvano`), 2026-11-02 (`elliptic-binance-hack`). Counts below are from those runs.
 
 ---
 
@@ -36,6 +36,7 @@ This document lists every external service the KYT collector pulls data from: wh
 | 21 | `poison-hunter` | DS2L/Poison-Hunter (GitHub, ACM CCS'24) | 4 | Ethereum address-poisoning look-alike / attacker addresses | TXT + CSV | None | Free (no licence file) | 6,019 (6,016 new) |
 | 22 | `drainer-daas` | blocksecteam/DaaS_dataset (GitHub, IMC'25) | 4 | Drainer-as-a-Service operators, affiliates and profit-sharing contracts | TXT (`.log`) | None | Free (no licence file) | 8,051 (6,724 new) |
 | 23 | `lazarus-tayvano` | tayvano/lazarus-bluenoroff-research (GitHub) | 4 | Lazarus / DPRK heist, laundering and IT-worker wallets | Markdown write-ups | None | Free (CC0) | 7,278 (6,882 new): ETH 6,665 · TRON 399 · BSC 215 |
+| 24 | `elliptic-binance-hack` | Elliptic (free data feed) | 4 | Binance hack 2026 attacker / laundering wallets | CSV, one address per line, no chain column | None | Free (no stated terms; screening use invited) | 12,729 (12,701 new): TRON 6,099 · ETH 3,315 · BSC 3,315 (mirror) — 2026-11-02 |
 
 **Tiers**
 - **Tier 1:** government sanctions, seizure orders and law-enforcement attributions. A sanctions match blocks.
@@ -75,6 +76,7 @@ The collector only fetches when a sync runs (the **Sync Feeds** button or `npm r
 | `poison-hunter` — Poison-Hunter | Free (no licence file) | **0 — static** (one release) | 2025-04 | ✅ `main` branch |
 | `drainer-daas` — Drainer-as-a-Service | Free (no licence file) | **0 — static** (one release) | 2025-11 | ✅ `main` branch |
 | `lazarus-tayvano` — Lazarus / DPRK notes | Free (CC0) | **New write-ups as DPRK heists happen** (repo commits weekly or more) | 2026-10-30 | ✅ `main` branch |
+| `elliptic-binance-hack` — Elliptic Binance hack blocklist | Free (no stated terms) | **Several updates a day while funds are traced** (file changed 09:24 → 10:24 GMT on 2026-11-02; 9,728 → 9,751 lines). Elliptic suggests fetching hourly. Will stop once tracing ends (Bybit list: ~2.5 months) | 2026-11-02 | ✅ same URL always serves the latest |
 
 **In short:** new wallets come mainly from **Tether TRON (hundreds a month), Tether ETH and Circle (tens to hundreds), Paxos (about ten), DeFiHackLabs and OFAC**. TUSD rarely freezes. Four OSINT lists (≈ 19k wallets) are frozen in time — their wallets stay in the database and are still screened, but nothing new will come from them; a daily sync is enough to keep up with every live source.
 
@@ -399,6 +401,18 @@ USDT on BSC (`0x55d398326f99059fF775485246999027B3197955`) is **Binance-Peg BSC-
 | Pricing / license | Free, **CC0-1.0** (no restrictions, commercial use allowed) |
 | Freshness | Actively updated (commits weekly or more; last 2026-10-30) |
 | Output | `intel_wallets` → `HACK_EXPLOIT`, tier 4, confidence 70; `entity` = `Lazarus / DPRK — <incident> (<role>)`, `programs` = incident, `listedAt` = the write-up's `Date::` line, reference = the write-up on GitHub |
+
+### 3.23 Elliptic Binance hack 2026 blocklist (`elliptic-binance-hack`)
+| | |
+|---|---|
+| What | Addresses Elliptic's investigators link to the Binance hot-wallet hack of 2026-10-29 and the laundering of its funds |
+| Data | `https://data-cdn.elliptic.co/blocklists/binance-hack-blocklist.csv` — one address per line, no header, no chain column. Same addresses as Elliptic's public MCP server. Docs: [elliptic.co/binance-hack-2026-blocklist](https://www.elliptic.co/binance-hack-2026-blocklist/) |
+| Not used | Bitcoin, Solana and XRP Ledger lines (333 on 2026-11-02) |
+| Chain | `T…` → TRON; `0x…` → Ethereum + BSC mirror (Elliptic: "screen it across every EVM chain you support"). 0x addresses are lowercased, which also merges the mixed-case duplicates in the file |
+| Pricing / license | Free, no account or key. **No licence or terms** on the page; Elliptic invites screening teams to load it and fetch it on a schedule. Use for screening with attribution; don't redistribute the full list. See [SOURCE_PERMISSIONS.md](SOURCE_PERMISSIONS.md) row 24 |
+| Freshness | Live while tracing continues (several changes a day on 2026-11-02). Incident-specific: expect it to freeze, then be retired, like Elliptic's Bybit list. If the file disappears the collector keeps the last copy |
+| Removal | Own module [ellipticBinanceHack.js](src/lib/collector/sources/ellipticBinanceHack.js): delete it and its two lines in `sources/index.js` |
+| Output | `intel_wallets` → `HACK_EXPLOIT`, tier 4, confidence 80; `entity` = `Binance hack 2026 — attacker / laundering address (Elliptic)`, `programs` = `Binance hack 2026`, `listedAt` = 2026-10-29, `sourceDate` = the file's Last-Modified header |
 
 ---
 
