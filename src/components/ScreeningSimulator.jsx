@@ -9,6 +9,7 @@ import {
   getExplorerTxUrl,
 } from "@/lib/chains/chainConfig";
 import { BEHAVIOUR_RULES } from "@/lib/exposure/rules";
+import { formatAge } from "@/lib/behaviour/format";
 
 // Verdict banner per risk level. HIGH / MEDIUM come from counterparty exposure or OSINT labels;
 // only the wallet's own sanctions / freeze listing is CRITICAL.
@@ -164,17 +165,7 @@ function ExposurePanel({ result }) {
 
 const short = (a) => (a ? `${a.slice(0, 8)}…${a.slice(-6)}` : "");
 
-/** "2 years 3 months" / "5 days" / "less than a day". */
-function ageText(days) {
-  if (days === null || days === undefined) return null;
-  if (days < 1) return "less than a day";
-  if (days < 60) return `${days} day${days === 1 ? "" : "s"}`;
-  const years = Math.floor(days / 365);
-  const months = Math.floor((days % 365) / 30);
-  return [years && `${years} year${years === 1 ? "" : "s"}`, months && `${months} month${months === 1 ? "" : "s"}`]
-    .filter(Boolean)
-    .join(" ");
-}
+const ageText = formatAge;
 
 /** Wallet age line, shown for every result. Under 7 days is highlighted. */
 function WalletAge({ result }) {
@@ -211,7 +202,10 @@ function LayeringPath({ result, evidence }) {
   let rows;
   if (evidence.direction === "back") rows = [end, ...[...evidence.layers].reverse().map(layer), self];
   else if (evidence.direction === "forward") rows = [self, ...evidence.layers.map(layer), end];
-  else rows = [...[...evidence.back].reverse().map(layer), self, ...evidence.forward.map(layer)];
+  else if (evidence.startIsLayer) rows = [...[...evidence.back].reverse().map(layer), self, ...evidence.forward.map(layer)];
+  // This wallet isn't a layer itself, so the two sides aren't one row: draw only the longer one.
+  else if (evidence.back.length >= evidence.forward.length) rows = [...[...evidence.back].reverse().map(layer), self];
+  else rows = [self, ...evidence.forward.map(layer)];
   return (
     <ol className="mt-1 space-y-0.5 text-[11px] text-slate-300">
       {rows.map((r, i) => (
@@ -251,6 +245,11 @@ function BehaviourPanel({ result }) {
           {b.coverage.funder === "unavailable" && (
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
               Funder lookup unavailable
+            </span>
+          )}
+          {b.coverage.funderChecks === "unavailable" && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
+              Funder checks unavailable
             </span>
           )}
           {b.coverage.layering === "partial" && (

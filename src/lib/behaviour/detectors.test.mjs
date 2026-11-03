@@ -172,6 +172,13 @@ test("poisoningTarget: dust from lookalike of a real counterparty -> INFO", () =
   assert.equal(s.evidence.real, REAL);
 });
 
+test("poisoningTarget: still warns after the victim already paid the lookalike", () => {
+  const tx = [t(REAL, "out", 500, 100), t(FAKE, "in", 0.5, 90), t(FAKE, "out", 20, 80)];
+  const s = detectPoisoningTarget(tx, SELF);
+  assert.equal(s?.evidence.lookalike, FAKE);
+  assert.equal(s?.evidence.real, REAL);
+});
+
 test("poisoningTarget: TRON comparison is case-sensitive", () => {
   const otherCase = "TXYZAQQQQQQQQQQQQQQQQQQQQQQQQ9AKP";
   assert.equal(detectPoisoningTarget([t(REAL, "out", 500, 100), t(otherCase, "in", 0.5, 90)], SELF), null);

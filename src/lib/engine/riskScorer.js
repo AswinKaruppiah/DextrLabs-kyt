@@ -134,7 +134,8 @@ export async function evaluateTransactionRisk({
   // exposure category, since those name a concrete counterparty.
   let behaviour = null;
   let behaviourFindings = null;
-  if (!hasCustomHops && from) {
+  // Runs for custom-hop screenings too (no history there, so only age / funder), so every result has a wallet age.
+  if (from) {
     try {
       behaviour = await analyzeBehaviour(effectiveChain, from, exposure?.history ?? null);
     } catch (err) {

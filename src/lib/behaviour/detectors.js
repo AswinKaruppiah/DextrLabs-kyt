@@ -177,19 +177,27 @@ export function detectPoisoner(transfers) {
 const lookalikeKey = (a) => (/^0x/i.test(a) ? `${a.slice(2, 6)}|${a.slice(-4)}`.toLowerCase() : `${a.slice(0, 5)}|${a.slice(-4)}`);
 const sameAddress = (a, b) => (/^0x/i.test(a) ? a.toLowerCase() === b.toLowerCase() : a === b);
 
-/** Received dust from an address that imitates one of the wallet's real counterparties (victim side). */
+/**
+ * Received dust from an address that imitates one of the wallet's real counterparties (victim side).
+ * A "real" counterparty is one the wallet moved money with before the lookalike's first dust, so a
+ * victim who already paid the lookalike by mistake is still warned.
+ */
 export function detectPoisoningTarget(transfers, selfAddress) {
-  const real = new Map();
-  for (const t of transfers) {
-    if (!isDust(t) && !sameAddress(t.cp, selfAddress)) real.set(lookalikeKey(t.cp), t.cp);
+  const sorted = [...transfers].sort(byTime);
+  const firstReal = new Map(); // lookalike key -> Map(address -> first non-dust ts)
+  for (const t of sorted) {
+    if (isDust(t) || sameAddress(t.cp, selfAddress)) continue;
+    const key = lookalikeKey(t.cp);
+    if (!firstReal.has(key)) firstReal.set(key, new Map());
+    const seen = firstReal.get(key);
+    if (!seen.has(t.cp)) seen.set(t.cp, t.ts);
   }
   const matches = [];
-  for (const t of transfers) {
-    if (t.dir !== "in" || !isDust(t)) continue;
-    const twin = real.get(lookalikeKey(t.cp));
-    if (twin && !sameAddress(twin, t.cp) && !matches.some((m) => m.lookalike === t.cp)) {
-      matches.push({ lookalike: t.cp, real: twin });
-    }
+  for (const t of sorted) {
+    if (t.dir !== "in" || !isDust(t) || matches.some((m) => m.lookalike === t.cp)) continue;
+    const candidates = [...(firstReal.get(lookalikeKey(t.cp)) || [])];
+    const twin = candidates.find(([address, ts]) => !sameAddress(address, t.cp) && ts < t.ts)?.[0];
+    if (twin) matches.push({ lookalike: t.cp, real: twin });
   }
   if (!matches.length) return null;
   const [first] = matches;

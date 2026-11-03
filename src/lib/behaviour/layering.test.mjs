@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { traceLayering, layeringSignal } from "./layering.js";
+import { traceLayering, layeringSignal, isHub } from "./layering.js";
 
 const NOW = Date.UTC(2026, 10, 3, 12, 0, 0);
 const MIN = 60_000;
@@ -173,9 +173,37 @@ test("cycle A->B->A does not loop forever", async () => {
 });
 
 test("screened wallet that is itself a layer joins back and forward rows", () => {
-  const two = { layers: [{ address: "A" }, { address: "B" }].slice(0, 1), end: { reason: "not-a-layer" }, partial: false };
+  const back = { layers: [{ address: "A" }], end: { reason: "not-a-layer" }, partial: false };
+  const fwd = { layers: [{ address: "B" }], end: { reason: "not-a-layer" }, partial: false };
   // 1 back + screened + 1 forward = 3 in a row
-  assert.equal(layeringSignal(two, two, true)?.type, "LAYERING_CHAIN");
+  assert.equal(layeringSignal(back, fwd, true)?.type, "LAYERING_CHAIN");
   // without the screened wallet in the row, 1 and 1 are separate rows
-  assert.equal(layeringSignal(two, two, false), null);
+  assert.equal(layeringSignal(back, fwd, false), null);
+});
+
+test("a wallet seen on both sides (ping-pong) is counted once", () => {
+  const same = { layers: [{ address: "L" }], end: { reason: "cycle" }, partial: false };
+  assert.equal(layeringSignal(same, same, true), null); // L + screened = 2, not 3
+});
+
+test("isHub ignores dust counterparties", () => {
+  const dust = Array.from({ length: 600 }, (_, i) => t(`D${i}`, "in", 0.01, i));
+  const real = Array.from({ length: 600 }, (_, i) => t(`U${i}`, "in", 100, i));
+  assert.equal(isHub({ transfers: dust, truncated: FULL }), false);
+  assert.equal(isHub({ transfers: real, truncated: FULL }), true);
+});
+
+test("forward: last fresh wallet before a hub is a deposit address, not a layer", async () => {
+  const hubTransfers = Array.from({ length: 600 }, (_, i) => t(`U${i}`, "in", 100, 1000 + i));
+  const world = {
+    X: { createdAt: NOW - 400 * DAY, transfers: [t("L1", "out", 5000, 300)] },
+    L1: layer("X", "L2", 300),
+    L2: layer("L1", "DEP", 250),
+    DEP: layer("L2", "HOT", 200),
+    HOT: { createdAt: NOW - 900 * DAY, transfers: hubTransfers },
+  };
+  const fwd = await traceLayering("X", "forward", deps(world));
+  assert.deepEqual(fwd.layers.map((l) => l.address), ["L1", "L2"]);
+  assert.equal(fwd.end.reason, "hub");
+  assert.equal(fwd.end.depositAddress, "DEP");
 });

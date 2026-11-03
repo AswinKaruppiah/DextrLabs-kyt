@@ -26,9 +26,13 @@ function mainCounterparty(transfers, direction) {
   return best && best.usd / total >= R.layeringDominantShare ? best : null;
 }
 
-/** Exchange-like wallet: too many counterparties (or too much history) to be one person's. */
+/**
+ * Exchange-like wallet: too many counterparties (or too much history) to be one person's.
+ * Dust doesn't count, so spraying tiny transfers can't make a wallet look like a hub.
+ */
 export const isHub = ({ transfers, truncated }) =>
-  (truncated?.in && truncated?.out) || new Set(transfers.map((t) => t.cp)).size >= R.hubCounterparties;
+  (truncated?.in && truncated?.out) ||
+  new Set(transfers.filter((t) => t.usd >= EXPOSURE_RULES.dustUsd).map((t) => t.cp)).size >= R.hubCounterparties;
 
 /** A fresh wallet that passes its money on quickly; returns its layer record or null. */
 export function asLayer(address, history, createdAt, now) {
@@ -78,7 +82,12 @@ export async function traceLayering(start, direction, deps) {
       risk = await call(deps.getRisk(next));
       if (risk) return stop(next, "listed", { risk });
       nextHistory = await call(deps.getHistory(next));
-      if (isHub(nextHistory)) return stop(next, "hub");
+      if (isHub(nextHistory)) {
+        // Going forward, a fresh wallet that empties straight into a hub is that exchange's
+        // deposit address (a cash-out), not one more layer.
+        const deposit = direction === "forward" && layers.length ? layers.pop().address : undefined;
+        return stop(next, "hub", deposit ? { depositAddress: deposit } : {});
+      }
       createdAt = await call(deps.getAge(next));
     } catch (err) {
       return failed(next, err);
@@ -116,7 +125,9 @@ export function layeringSignal(back, forward, startIsLayer) {
       evidence: { direction: trace === back ? "back" : "forward", layers: trace.layers, end: { address: trace.end.address, entity: risk.entity, category: risk.risk.id } },
     };
   }
-  const row = startIsLayer ? back.layers.length + 1 + forward.layers.length : Math.max(back.layers.length, forward.layers.length);
+  // The two traces keep separate visited sets, so a wallet seen on both sides is counted once.
+  const both = new Set([...back.layers, ...forward.layers].map((l) => l.address)).size;
+  const row = startIsLayer ? both + 1 : Math.max(back.layers.length, forward.layers.length);
   if (row < R.layeringMinLayers) return null;
   return {
     type: "LAYERING_CHAIN",

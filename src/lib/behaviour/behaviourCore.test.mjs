@@ -80,6 +80,18 @@ test("funder lookup throws -> coverage.funder unavailable, no throw", async () =
   assert.equal(r.coverage.funder, "unavailable");
 });
 
+test("funder found but its checks fail -> funder stays 'found', funderChecks 'unavailable'", async () => {
+  const deps = fakeDeps({
+    funding: { funder: "F", ts: NOW - 2 * DAY, tx: "f1" },
+    createdAt: NOW - 2 * DAY,
+    countFundedWallets: async () => { throw new Error("down"); },
+  });
+  const r = await run({ transfers: [t("A", "in", 300, 60)], truncated: FULL }, deps);
+  assert.equal(r.coverage.funder, "found");
+  assert.equal(r.coverage.funderChecks, "unavailable");
+  assert.equal(r.wallet.funder.address, "F");
+});
+
 test("behaviour work respects the deadline even if a lookup hangs", async () => {
   const deps = fakeDeps({ findFirstFunder: () => new Promise(() => {}) });
   const started = Date.now();

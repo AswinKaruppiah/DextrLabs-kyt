@@ -122,7 +122,13 @@ async function historySignals(self, history, deps, call, deadline, now) {
 
 export async function buildBehaviour({ address: self, history, now = Date.now(), deadline, deps }) {
   const call = (p) => withinDeadline(p, deadline);
-  const coverage = { status: history ? "complete" : "skipped", funder: "none", layering: history ? "complete" : "skipped" };
+  // funder: was the fee payer found; funderChecks: could it be checked (listed? wallet factory?).
+  const coverage = {
+    status: history ? "complete" : "skipped",
+    funder: "none",
+    funderChecks: "skipped",
+    layering: history ? "complete" : "skipped",
+  };
 
   const funderWork = (async () => {
     let funding = null;
@@ -154,10 +160,16 @@ export async function buildBehaviour({ address: self, history, now = Date.now(),
   };
 
   const funderSig = funding
-    ? funderSignal(funding, deps, call, now).catch(() => {
-        coverage.funder = "unavailable";
-        return null;
-      })
+    ? funderSignal(funding, deps, call, now).then(
+        (sig) => {
+          coverage.funderChecks = "complete";
+          return sig;
+        },
+        () => {
+          coverage.funderChecks = "unavailable";
+          return null;
+        }
+      )
     : null;
   const [hist, fSig] = await Promise.all([historyWork, funderSig]);
   if (fSig?.type === "FUNDED_BY_LISTED") wallet.funder.listed = true;
