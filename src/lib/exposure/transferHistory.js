@@ -3,25 +3,14 @@ import { addressKey, normalizeAddress } from "../collector/util/address.js";
 import { transferCacheCollection } from "../collector/db.js";
 import { SUPPORTED_CHAINS } from "../chains/chainConfig";
 import { EXPOSURE_RULES } from "./rules.js";
+import { tronSlot } from "../tron/pacer.js";
+import { alchemyUrl } from "../chains/alchemy.js";
 
 // Newest transfers kept per direction.
 const HISTORY_LIMIT = EXPOSURE_RULES.historyLimit;
 const TRONGRID_PAGE = 200;
 const HTTP_OPTS = { retries: 2, timeoutMs: 20_000 };
 
-const ALCHEMY_NETWORKS = { ETHEREUM: "eth-mainnet", BSC: "bnb-mainnet" };
-
-// TronGrid answers bursts with 429 and a ~30 s penalty, so request starts are spaced out
-// process-wide (all screenings share the one API key).
-const TRONGRID_GAP_MS = 150;
-const tronPacer = (globalThis.__kytTronPacer ??= { next: 0 });
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function tronSlot() {
-  const now = Date.now();
-  const at = Math.max(now, tronPacer.next);
-  tronPacer.next = at + TRONGRID_GAP_MS;
-  if (at > now) await sleep(at - now);
-}
 
 /**
  * One direction of a TRON wallet's USDT history from TronGrid, newest first.
@@ -65,10 +54,8 @@ async function tronDirection(address, direction) {
 
 /** One direction of an Ethereum / BSC wallet's USDT history from Alchemy's Transfers API, newest first. */
 async function alchemyDirection(chain, address, direction) {
-  const key = process.env.ALCHEMY_API_KEY;
-  if (!key) throw new Error("ALCHEMY_API_KEY is not set — needed for Ethereum / BSC transfer history");
   const result = await jsonRpc(
-    `https://${ALCHEMY_NETWORKS[chain]}.g.alchemy.com/v2/${key}`,
+    alchemyUrl(chain),
     "alchemy_getAssetTransfers",
     [
       {
