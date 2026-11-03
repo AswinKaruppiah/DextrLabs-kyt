@@ -8,6 +8,7 @@ import {
   detectPoisoningTarget,
   detectStructuring,
   walletAgeDays,
+  earliestActivity,
   holdStats,
   combineSignals,
 } from "./detectors.js";
@@ -129,6 +130,17 @@ test("newWallet uses createdAt even when history is truncated", () => {
   assert.equal(s?.level, "MEDIUM");
 });
 
+test("newWallet: first gas 1 day ago but USDT history goes back 700 days -> null (older activity wins)", () => {
+  const tx = [t("A", "in", 30_000, 700 * 1440), t("B", "out", 100, 60)];
+  assert.equal(detectNewWallet(tx, { createdAt: NOW - 1 * DAY, truncated: FULL }, NOW), null);
+});
+
+test("earliestActivity: the older of createdAt and the oldest transfer", () => {
+  assert.equal(earliestActivity(NOW - DAY, [t("A", "in", 5, 700 * 1440)]), NOW - 700 * DAY);
+  assert.equal(earliestActivity(NOW - DAY, [t("A", "in", 5, 60)]), NOW - DAY);
+  assert.equal(earliestActivity(null, []), null);
+});
+
 test("walletAgeDays: 36h ago -> 1; null -> null", () => {
   assert.equal(walletAgeDays(NOW - 36 * 3_600_000, NOW), 1);
   assert.equal(walletAgeDays(null, NOW), null);
@@ -188,6 +200,15 @@ test("structuring: 6 such transfers spread over 10 days -> null", () => {
 
 test("structuring: exactly $1,000 is not 'just below' -> null", () => {
   assert.equal(detectStructuring(many(6, (i) => t(`S${i}`, "in", 1000, i * 60))), null);
+});
+
+test("structuring: P2P buyer forwarding 3 x $990 lots to an exchange -> null (directions counted separately)", () => {
+  const tx = [
+    t("seller1", "in", 990, 360), t("deposit", "out", 990, 355),
+    t("seller2", "in", 990, 240), t("deposit", "out", 990, 235),
+    t("seller3", "in", 990, 120), t("deposit", "out", 990, 115),
+  ];
+  assert.equal(detectStructuring(tx), null);
 });
 
 test("structuring: $2,700-$2,999 band also counts", () => {

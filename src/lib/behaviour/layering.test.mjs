@@ -138,6 +138,30 @@ test("getHistory throws mid-path  =>  partial, signal from what was traced, no t
   assert.deepEqual(back.layers.map((l) => l.address), ["L1"]);
 });
 
+test("a slow fetch cannot overrun the deadline", async () => {
+  const world = {
+    L1: layer("L2", "X", 100),
+    X: { createdAt: NOW - 400 * DAY, transfers: [t("L1", "in", 4950, 85)] },
+  };
+  const d = deps(world);
+  const real = d.getHistory;
+  d.getHistory = async (a) => (a === "L1" ? new Promise((r) => setTimeout(() => r(real(a)), 3000)) : real(a));
+  d.deadline = Date.now() + 200;
+  const started = Date.now();
+  const back = await traceLayering("X", "back", d);
+  assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`);
+  assert.equal(back.end.reason, "deadline");
+  assert.equal(back.partial, true);
+});
+
+test("one fresh layer to a frozen wallet is MEDIUM, not HIGH (the layer may be an unrelated party)", () => {
+  const frozen = { ...SANCTIONED, category: "ISSUER_FREEZE", entity: "Tether-frozen wallet" };
+  const fwd = { layers: [{ address: "L1", ageDays: 1, holdHours: 0.2, usd: 5000 }], end: { address: "F", reason: "listed", risk: frozen }, partial: false };
+  assert.equal(layeringSignal({ layers: [], end: {}, partial: false }, fwd, false).level, "MEDIUM");
+  const two = { ...fwd, layers: [...fwd.layers, { address: "L2", ageDays: 1, holdHours: 0.2, usd: 5000 }] };
+  assert.equal(layeringSignal({ layers: [], end: {}, partial: false }, two, false).level, "HIGH");
+});
+
 test("cycle A->B->A does not loop forever", async () => {
   const world = {
     L1: layer("X", "X", 100),

@@ -135,7 +135,13 @@ export async function evaluateTransactionRisk({
   let behaviour = null;
   let behaviourFindings = null;
   if (!hasCustomHops && from) {
-    behaviour = await analyzeBehaviour(effectiveChain, from, exposure?.history ?? null);
+    try {
+      behaviour = await analyzeBehaviour(effectiveChain, from, exposure?.history ?? null);
+    } catch (err) {
+      // Behaviour is extra evidence: a bug or outage there must not break the whole screening.
+      console.error("Behaviour analysis failed:", err);
+      behaviour = { indicators: [], combined: false, wallet: null, coverage: { status: "failed", funder: "unavailable", layering: "skipped" } };
+    }
     if (senderListed) {
       behaviourFindings = behaviour.indicators;
     } else {

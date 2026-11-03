@@ -182,7 +182,7 @@ function WalletAge({ result }) {
   if (!w) return null;
   const age = ageText(w.ageDays);
   const fresh = w.ageDays !== null && w.ageDays < BEHAVIOUR_RULES.newWalletDays;
-  const source = w.ageSource === "account" ? "from account record" : "first gas received";
+  const source = { account: "from account record", "first-funding": "first gas received", "first-transfer": "first transfer seen" }[w.ageSource];
   return (
     <p className={`text-[11px] ${fresh ? "text-amber-300 font-semibold" : "text-slate-400"}`}>
       Wallet age:{" "}
@@ -261,10 +261,13 @@ function BehaviourPanel({ result }) {
         </div>
       </div>
 
+      {b.coverage.status === "failed" && (
+        <p className="text-xs text-amber-300">Behaviour checks failed to run this time; the rest of the screening is unaffected.</p>
+      )}
       {b.coverage.status === "skipped" && (
         <p className="text-xs text-amber-300">Behaviour checks need the transfer history, which could not be fetched.</p>
       )}
-      {findings.length === 0 && b.coverage.status !== "skipped" && (
+      {findings.length === 0 && b.coverage.status === "complete" && (
         <p className="text-xs text-emerald-300">No suspicious money-movement patterns found.</p>
       )}
 

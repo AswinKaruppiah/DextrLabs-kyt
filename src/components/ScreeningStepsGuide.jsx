@@ -60,7 +60,7 @@ const STEPS = [
     title: "How does it move money? (behaviour)",
     text:
       "Catches wallets no list names yet, from how they move money, how old they are and who paid their first fees. " +
-      `Behaviour alone is at most MEDIUM; two red flags together, or a sanctioned / frozen funder, is HIGH. Never CRITICAL.`,
+      `Behaviour alone is at most MEDIUM. HIGH needs two red flags together, a sanctioned / frozen funder, or money layered from / to a sanctioned / frozen wallet through 2+ new wallets. Never CRITICAL.`,
     chips: [
       `Wallet age: TRON account record; ETH / BSC first gas received`,
       `Pass-through: money leaves within ${B.passThroughMaxHoldMin} min, ${B.passThroughMinCycles}+ times`,
@@ -71,7 +71,7 @@ const STEPS = [
       "Funded by a listed wallet: who paid its first fees",
       `Layering: follows the main money path up to ${B.layeringMaxHops} wallets each way through wallets under ${B.layeringFreshDays} days old that pass money on within ${B.layeringMaxHoldH} h`,
       `Wallet factory: its fee payer funded ${B.factoryMinWallets}+ wallets in ${B.factoryWindowDays} days`,
-      { warn: true, text: "Exchange-like wallets (very busy) stop the trace and are not flagged: an exchange deposit address is shown as information" },
+      { warn: true, text: "Exchange-like wallets (very busy) stop the trace and are not flagged: an exchange deposit address is shown as information, and a very busy screened wallet skips the single-user pattern checks" },
     ],
   },
   {

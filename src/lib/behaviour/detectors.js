@@ -130,14 +130,22 @@ export const walletAgeDays = (createdAt, now = Date.now()) =>
 const ageText = (days) => (days === 0 ? "less than a day old" : `${days} day${days === 1 ? "" : "s"} old`);
 
 /**
- * A brand-new wallet that already moved a lot. Age comes from `createdAt` (account record or first
- * gas received); without it, the oldest transfer is used, but only when the history is complete.
+ * The wallet's first known activity: the older of `createdAt` (account record / first gas) and the
+ * oldest transfer seen. USDT can arrive before the first gas, so a transfer can predate `createdAt`.
+ */
+export function earliestActivity(createdAt, transfers) {
+  const oldest = transfers.length ? Math.min(...transfers.map((t) => t.ts)) : null;
+  if (createdAt == null) return oldest;
+  return oldest == null ? createdAt : Math.min(createdAt, oldest);
+}
+
+/**
+ * A brand-new wallet that already moved a lot. Age is the earliest of `createdAt` and the oldest
+ * transfer; without `createdAt`, only a complete (untruncated) history can show the wallet is new.
  */
 export function detectNewWallet(transfers, { createdAt, truncated }, now = Date.now()) {
-  let firstTs = createdAt ?? null;
-  if (firstTs == null && transfers.length && !truncated?.in && !truncated?.out) {
-    firstTs = Math.min(...transfers.map((t) => t.ts));
-  }
+  const complete = !truncated?.in && !truncated?.out;
+  const firstTs = createdAt != null || complete ? earliestActivity(createdAt ?? null, transfers) : null;
   const ageDays = walletAgeDays(firstTs, now);
   if (ageDays === null || now - firstTs > R.newWalletDays * DAY_MS) return null;
   const volumeUsd = volume(transfers);
@@ -194,10 +202,10 @@ export function detectPoisoningTarget(transfers, selfAddress) {
   );
 }
 
-/** Repeated amounts just under a reporting-style limit ($900-$999, $2,700-$2,999, ...) in a short time. */
-export function detectStructuring(transfers) {
+/** Most just-below transfers inside any window, for one direction. */
+function maxInWindow(transfers, dir) {
   const justBelow = transfers
-    .filter((t) => R.structuringBands.some((b) => t.usd >= 0.9 * b && t.usd < b))
+    .filter((t) => t.dir === dir && R.structuringBands.some((b) => t.usd >= 0.9 * b && t.usd < b))
     .sort(byTime);
   const windowMs = R.structuringWindowH * 3_600_000;
   let best = 0;
@@ -205,6 +213,15 @@ export function detectStructuring(transfers) {
     while (justBelow[j].ts - justBelow[i].ts > windowMs) i++;
     best = Math.max(best, j - i + 1);
   }
+  return best;
+}
+
+/**
+ * Repeated amounts just under a reporting-style limit ($900-$999, $2,700-$2,999, ...) in a short time.
+ * Incoming and outgoing are counted separately, so forwarding a lot on doesn't count it twice.
+ */
+export function detectStructuring(transfers) {
+  const best = Math.max(maxInWindow(transfers, "in"), maxInWindow(transfers, "out"));
   if (best < R.structuringMinCount) return null;
   return signal(
     "STRUCTURING",

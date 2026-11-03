@@ -1,5 +1,6 @@
 import { BEHAVIOUR_RULES as R, EXPOSURE_RULES } from "../exposure/rules.js";
 import { holdStats, walletAgeDays } from "./detectors.js";
+import { withinDeadline, DeadlineError } from "./deadline.js";
 
 /**
  * Layering: money passed through a row of freshly made wallets, each forwarding it within hours,
@@ -52,12 +53,16 @@ export async function traceLayering(start, direction, deps) {
   const visited = new Set([start]);
   const stop = (address, reason, extra = {}) => ({ layers, end: { address, reason, ...extra }, partial: reason === "error" || reason === "deadline" });
 
+  // Every lookup is bounded by the deadline, so one slow wallet can't stretch the whole screening.
+  const call = (p) => withinDeadline(p, deps.deadline);
+  const failed = (address, err) => stop(address, err instanceof DeadlineError ? "deadline" : "error");
+
   let current = start;
   let history;
   try {
-    history = await deps.getHistory(start);
-  } catch {
-    return stop(start, "error");
+    history = await call(deps.getHistory(start));
+  } catch (err) {
+    return failed(start, err);
   }
 
   for (let hop = 0; hop < R.layeringMaxHops; hop++) {
@@ -70,13 +75,13 @@ export async function traceLayering(start, direction, deps) {
 
     let risk, nextHistory, createdAt;
     try {
-      risk = await deps.getRisk(next);
+      risk = await call(deps.getRisk(next));
       if (risk) return stop(next, "listed", { risk });
-      nextHistory = await deps.getHistory(next);
+      nextHistory = await call(deps.getHistory(next));
       if (isHub(nextHistory)) return stop(next, "hub");
-      createdAt = await deps.getAge(next);
-    } catch {
-      return stop(next, "error");
+      createdAt = await call(deps.getAge(next));
+    } catch (err) {
+      return failed(next, err);
     }
     const record = asLayer(next, nextHistory, createdAt, now);
     if (!record) return stop(next, "not-a-layer");
@@ -101,9 +106,10 @@ export function layeringSignal(back, forward, startIsLayer) {
   ]) {
     if (trace.end?.reason !== "listed" || !trace.layers.length) continue;
     const { risk } = trace.end;
+    // One fresh wallet in between may be an unrelated party (as at exposure hop 2), so HIGH needs 2+.
     return {
       type,
-      level: risk.severe ? "HIGH" : "MEDIUM",
+      level: risk.severe && trace.layers.length >= 2 ? "HIGH" : "MEDIUM",
       reason:
         `Money ${verb} ${risk.entity} (${risk.providers.join(", ")}) through ${plural(trace.layers.length)} ` +
         `that each passed it on within ${hold}.`,
