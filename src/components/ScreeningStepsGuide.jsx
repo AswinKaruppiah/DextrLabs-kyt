@@ -37,7 +37,7 @@ const STEPS = [
       `and check every wallet on the other side against the same lists.`,
     chips: [
       "TRON: TronGrid · ETH / BSC: Alchemy",
-      `Incoming transfers under ${usd(R.dustUsd)} ignored (dust / poisoning)`,
+      `Incoming transfers under ${usd(R.dustUsd)} ignored (dust / poisoning), unless those from one wallet add up to ${usd(R.dustSumUsd)} or more`,
       "Sending to a listed wallet always counts",
     ],
   },
@@ -72,6 +72,7 @@ const STEPS = [
         `Smaller direct exposure to a sanctioned / frozen wallet, large direct exposure to scam / hack wallets, or ≥ ${usd(R.highUsd)} between a counterparty and a sanctioned / frozen wallet at hop 2`,
       ],
       ["LOW", "text-emerald-400", "Nothing found, or only small scam / hack or hop-2 exposure (shown for context)"],
+      ["UNKNOWN", "text-slate-300", "Nothing found, but the transfer history or live freeze check could not be fetched. Re-check before transacting"],
     ],
   },
 ];

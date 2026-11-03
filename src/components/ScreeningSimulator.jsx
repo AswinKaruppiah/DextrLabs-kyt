@@ -40,6 +40,14 @@ const VERDICTS = {
     panel: "bg-emerald-950/70 border-emerald-500/40 text-emerald-100",
     badge: "bg-emerald-500 text-white border-emerald-400",
   },
+  // Nothing bad found, but a check failed (history fetch, live freeze check), so it can't be called good.
+  UNKNOWN: {
+    icon: "❔",
+    title: "COULD NOT VERIFY WALLET",
+    action: "RETRY / MANUAL REVIEW",
+    panel: "bg-slate-800/80 border-slate-500/50 text-slate-100",
+    badge: "bg-slate-500 text-white border-slate-400",
+  },
 };
 
 const LEVEL_PILL = {
@@ -375,11 +383,22 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                     </div>
                     <p className="text-xs mt-0.5 opacity-90 font-medium">
                       {result.riskLevel === "CRITICAL"
-                        ? `Threat: ${listing?.entity || "Sanctions / Blacklist"} • Action: ${result.finalAction || result.recommendedAction}`
+                        ? `Threat: ${listing?.entity || "Sanctions / Blacklist"} • Action: ${result.recommendedAction}`
                         : result.riskLevel === "LOW"
                         ? "Not on any sanctions, freeze or scam list, and no significant exposure to listed wallets."
+                        : result.riskLevel === "UNKNOWN"
+                        ? "Nothing bad found, but some checks could not run. Do not treat this wallet as clean until it is re-checked."
+                        : listing
+                        ? `Listed: ${listing.entity} (${listing.categoryLabel}).`
                         : "Not listed itself, but has moved USDT with listed wallets. See counterparty exposure below."}
                     </p>
+                    {result.checkGaps?.length > 0 && (
+                      <ul className="mt-1.5 list-disc pl-5 space-y-0.5 text-[11px] opacity-90">
+                        {result.checkGaps.map((g, i) => (
+                          <li key={i}>{g}</li>
+                        ))}
+                      </ul>
+                    )}
                     {/* Detected Authorities Badges (the wallet's own listing) */}
                     {listing?.providers?.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -421,7 +440,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
               </span>
               <div>
                 <span className="text-xs font-semibold text-white block">
-                  Action: {result.finalAction || result.recommendedAction}
+                  Action: {result.recommendedAction}
                 </span>
                 <span className="text-[11px] text-slate-400">
                   {result.chainName} ({result.tokenStandard}) &bull; ID: {result.screeningId}

@@ -2,6 +2,7 @@ import { getTransferHistory } from "./transferHistory.js";
 import { lookupAddresses } from "../collector/store.js";
 import { normalizeAddress } from "../collector/util/address.js";
 import { RISK_CATEGORIES } from "../intelligence/entityAttribution";
+import { sanctionsCategoryId } from "../intelligence/sanctionsRegistry";
 import { EXPOSURE_RULES } from "./rules.js";
 
 export { EXPOSURE_RULES };
@@ -21,17 +22,21 @@ const LISTED_ORDER = Object.keys(LISTED);
 const usd = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
 const day = (ts) => new Date(ts).toISOString().slice(0, 10);
 
-/** Per-counterparty totals of one wallet's transfers. `counted` drops incoming dust. */
+/**
+ * Per-counterparty totals of one wallet's transfers. `counted` drops incoming dust, unless the
+ * small transfers from one counterparty add up to `dustSumUsd` (many small payments, not poisoning).
+ */
 function aggregate(transfers, skip) {
   const byCp = new Map();
   let totalUsd = 0;
-  let dustIgnored = 0;
   for (const t of transfers) {
     totalUsd += t.usd;
     const cp = normalizeAddress(t.cp || "");
     if (!cp || skip.has(cp)) continue;
     let a = byCp.get(cp);
-    if (!a) byCp.set(cp, (a = { cp, inUsd: 0, outUsd: 0, counted: 0, txCount: 0, largest: null, lastTs: 0 }));
+    if (!a) {
+      byCp.set(cp, (a = { cp, inUsd: 0, outUsd: 0, counted: 0, txCount: 0, largest: null, lastTs: 0, dust: { usd: 0, count: 0, largest: null } }));
+    }
     a.txCount++;
     a[t.dir === "in" ? "inUsd" : "outUsd"] += t.usd;
     // Sending to a bad wallet is the wallet's own act at any amount; receiving dust is not.
@@ -39,12 +44,30 @@ function aggregate(transfers, skip) {
       a.counted += t.usd;
       if (!a.largest || t.usd > a.largest.usd) a.largest = t;
     } else {
-      dustIgnored++;
+      a.dust.usd += t.usd;
+      a.dust.count++;
+      if (!a.dust.largest || t.usd > a.dust.largest.usd) a.dust.largest = t;
     }
     a.lastTs = Math.max(a.lastTs, t.ts);
   }
+  let dustIgnored = 0;
+  for (const a of byCp.values()) {
+    if (a.dust.usd >= EXPOSURE_RULES.dustSumUsd) {
+      a.counted += a.dust.usd;
+      a.dustCounted = a.dust.count;
+      if (!a.largest) a.largest = a.dust.largest;
+    } else {
+      dustIgnored += a.dust.count;
+    }
+  }
   return { byCp, totalUsd, dustIgnored };
 }
+
+/** " (incl. 500 transfers under $10 ...)" when split-up small payments were counted. */
+const dustNote = (a) =>
+  a.dustCounted
+    ? ` (incl. ${a.dustCounted} transfers under ${usd(EXPOSURE_RULES.dustUsd)} that add up to ${usd(a.dust.usd)})`
+    : "";
 
 /** The most severe risky listing of an intel entry, or null if it carries none. */
 function riskOf(entry) {
@@ -54,6 +77,7 @@ function riskOf(entry) {
   return {
     category,
     ...LISTED[category],
+    ...(category === "SANCTIONS" && { risk: RISK_CATEGORIES[sanctionsCategoryId(sources)] }),
     entity: sources.find((s) => s.entity)?.entity || entry.entities?.[0] || LISTED[category].risk.label,
     providers: [...new Set(sources.map((s) => s.authority))],
     reference: sources.find((s) => s.reference?.url)?.reference?.url || null,
@@ -293,7 +317,7 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
         agg,
         pct,
         reason:
-          `Directly ${flowVerb(agg)} ${risk.entity} (${risk.providers.join(", ")}) — ` +
+          `Directly ${flowVerb(agg)} ${risk.entity} (${risk.providers.join(", ")})${dustNote(agg)} — ` +
           `${pct.toFixed(1)}% of this wallet's volume, last on ${day(agg.lastTs)}.`,
       })
     );
@@ -369,7 +393,7 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
           via: { address: via.cp, volumeUsd: Math.round(via.inUsd + via.outUsd), direction: flowDirection(via) },
           reason:
             `2 hops: this wallet ${flowVerb(via)} ${via.cp}, which ${flowVerb(agg)} ` +
-            `${risk.entity} (${risk.providers.join(", ")}), last on ${day(agg.lastTs)}.`,
+            `${risk.entity} (${risk.providers.join(", ")})${dustNote(agg)}, last on ${day(agg.lastTs)}.`,
         })
       );
     }

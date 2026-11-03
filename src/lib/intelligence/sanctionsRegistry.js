@@ -11,6 +11,12 @@ const PROVIDER_LABELS = {
   "il-nbctf": "IL-NBCTF",
 };
 
+const OFAC_SOURCES = new Set(["ofac-sdn", "ofac-0xb10c"]);
+
+/** Risk category of a set of sanctions listings: OFAC only when a US OFAC source lists it. */
+export const sanctionsCategoryId = (sources) =>
+  sources.some((s) => OFAC_SOURCES.has(s.sourceId)) ? "SANCTIONS_OFAC" : "SANCTIONS_DESIGNATION";
+
 /**
  * Checks an address against the government sanctions sources in the collected intel
  * database (MongoDB intel_wallets — see DATA_SOURCES.md).
@@ -41,7 +47,7 @@ export async function checkSanctions(address, chain) {
     jurisdictions,
     programs,
     fatfNexus: null,
-    threatType: "SANCTIONS_OFAC",
+    threatType: sanctionsCategoryId(designations),
     threatLevel: "CRITICAL",
     riskWeight: 100,
     confidence: "CONFIRMED_SANCTIONED",

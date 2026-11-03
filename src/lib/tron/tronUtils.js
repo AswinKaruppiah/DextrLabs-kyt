@@ -8,7 +8,7 @@ export const USDT_TRON_CONTRACT = process.env.NEXT_PUBLIC_USDT_TRON_CONTRACT;
 export const USDT_DECIMALS = 6;
 
 // Base58 regex for TRON addresses (starts with 'T', 34 characters)
-const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-za-km-z]{33}$/;
+const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 
 /**
  * Validates whether a string is a well-formed TRON Base58 address

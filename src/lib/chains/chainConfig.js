@@ -13,7 +13,7 @@ export const SUPPORTED_CHAINS = {
     decimals: 6,
     explorerName: "Tronscan",
     explorerBaseUrl: process.env.NEXT_PUBLIC_TRON_EXPLORER_URL,
-    addressRegex: /^T[1-9A-HJ-NP-za-km-z]{33}$/,
+    addressRegex: /^T[1-9A-HJ-NP-Za-km-z]{33}$/,
     txRegex: /^(0x)?[0-9a-fA-F]{64}$/,
     brandColor: "#FF060A",
     badgeClass: "bg-red-500/15 text-red-400 border-red-500/30",
@@ -61,7 +61,7 @@ export function detectChainFromAddress(address, preferredChain = "TRON") {
   const clean = address.trim();
 
   // TRON Base58Check starts with 'T'
-  if (/^T[1-9A-HJ-NP-za-km-z]{33}$/.test(clean)) {
+  if (/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(clean)) {
     return "TRON";
   }
 
@@ -81,8 +81,8 @@ export function detectChainFromAddress(address, preferredChain = "TRON") {
  * @returns {boolean}
  */
 export function isValidAddressForChain(chain, address) {
-  const cfg = SUPPORTED_CHAINS[chain] || SUPPORTED_CHAINS.TRON;
-  return cfg.addressRegex.test(address?.trim() || "");
+  const cfg = SUPPORTED_CHAINS[chain];
+  return !!cfg && cfg.addressRegex.test(address?.trim() || "");
 }
 
 /**

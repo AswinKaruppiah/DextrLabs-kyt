@@ -6,6 +6,7 @@ const TRON_USDT_HEX = process.env.TRON_USDT_CONTRACT_HEX;
 // Without this header TronGrid treats calls as anonymous: tight rate limits, and they
 // don't show up in the TronGrid dashboard.
 const TRONGRID_API_KEY = process.env.TRONGRID_API_KEY;
+const LIVE_CHECK_TIMEOUT_MS = 10000;
 
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -46,7 +47,8 @@ export function tronAddressToHex(base58) {
  * Checks in REAL-TIME on-chain whether a TRON address is blacklisted in Tether's USDT contract.
  * Directly calls the live smart contract function: `getBlackListStatus(address)`
  * @param {string} base58Address 
- * @returns {Promise<{isFrozen: boolean, method: string, contract: string, onChain: boolean}>}
+ * `onChain: false` means the check could not be made (the answer is unknown, not "not frozen").
+ * @returns {Promise<{isFrozen: boolean, method: string, contract: string, onChain: boolean, error?: string}>}
  */
 export async function checkLiveTetherBlacklistOnChain(base58Address) {
   try {
@@ -73,6 +75,7 @@ export async function checkLiveTetherBlacklistOnChain(base58Address) {
         parameter: paddedParam,
       }),
       cache: "no-store",
+      signal: AbortSignal.timeout(LIVE_CHECK_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -91,7 +94,8 @@ export async function checkLiveTetherBlacklistOnChain(base58Address) {
       };
     }
 
-    return { isFrozen: false, onChain: true };
+    // No result means the contract call didn't run, not that the wallet is clean.
+    return { isFrozen: false, onChain: false, error: "Empty contract result" };
   } catch (err) {
     console.error("Error executing on-chain getBlackListStatus:", err);
     return { isFrozen: false, onChain: false, error: err.message };

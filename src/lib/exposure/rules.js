@@ -6,6 +6,7 @@
 export const EXPOSURE_RULES = {
   historyLimit: 1000, // newest transfers read per direction (one Alchemy call / five TronGrid pages)
   dustUsd: 10, // incoming transfers below this are ignored: dusting / address poisoning hits victims
+  dustSumUsd: 100, // ...unless the small transfers from one wallet add up to this (a payment split into pieces)
   highUsd: 1_000, // direct exposure at or above this amount...
   highPct: 10, // ...or this share of the wallet's volume is HIGH (sanctions / freezes)
   hop2FanOut: 5, // hop 2 follows only this many of the largest clean counterparties

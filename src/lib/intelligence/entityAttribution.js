@@ -16,6 +16,15 @@ export const RISK_CATEGORIES = {
     action: "BLOCK_AND_FREEZE",
     color: "#EF4444",
   },
+  // Sanctioned by a government other than the US (EU, UK, UN, Israel NBCTF), not by OFAC.
+  SANCTIONS_DESIGNATION: {
+    id: "SANCTIONS_DESIGNATION",
+    label: "Government Sanctions List",
+    severity: "CRITICAL",
+    baseScore: 100,
+    action: "BLOCK_AND_FREEZE",
+    color: "#EF4444",
+  },
   TETHER_FROZEN: {
     id: "TETHER_FROZEN",
     label: "Tether Smart Contract Freeze",
@@ -120,10 +129,15 @@ export async function resolveEntity(address, chain = "TRON") {
   // 1. Check Tether smart contract blacklist
   let isTetherFrozen = false;
   let tetherFreezeDetails = null;
+  // Checks that could not be completed. A wallet that looks clean with gaps here is "unverified", not clean.
+  const checkGaps = [];
 
   if (effectiveChain === "TRON") {
     // For TRON, try live on-chain check via TronGrid RPC with static fallback
     const liveCheck = await checkLiveTetherBlacklistOnChain(cleanAddr);
+    if (!liveCheck.onChain) {
+      checkGaps.push(`Live Tether freeze check failed (${liveCheck.error || "unknown error"}); only the stored freeze list was checked.`);
+    }
     if (liveCheck.isFrozen) {
       isTetherFrozen = true;
       tetherFreezeDetails = {
@@ -231,6 +245,7 @@ export async function resolveEntity(address, chain = "TRON") {
       confidence: "OSINT_LABELLED",
       isSanctioned: false,
       isTetherFrozen: false,
+      checkGaps,
       providers: [...new Set(osint.map((s) => s.authority))],
       evidence: osint.map((s) => ({
         source: s.authority,
@@ -262,6 +277,7 @@ export async function resolveEntity(address, chain = "TRON") {
       confidence: "VERIFIED_EXCHANGE",
       isSanctioned: false,
       isTetherFrozen: false,
+      checkGaps,
       evidence: [
         {
           source: `Public Proof-of-Reserves / ${chainConfig.name} Hot Infrastructure`,
@@ -281,6 +297,7 @@ export async function resolveEntity(address, chain = "TRON") {
     confidence: "UNIDENTIFIED",
     isSanctioned: false,
     isTetherFrozen: false,
+    checkGaps,
     evidence: [
       {
         source: `${chainConfig.name} Blockchain Telemetry`,

@@ -56,7 +56,7 @@ How **DextrLabs-KYT** collects risk addresses and uses them to screen USDT activ
 |---|---|---|---|---|---|
 | 1 | **Live Tether freeze (TRON only)**: `getBlackListStatus(address)` on `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` via TronGrid | On-chain RPC | `TETHER_FROZEN` | 100 | Block |
 | 1b | Tether freeze as of the last collection (TRON and ETH) | [`tetherBlacklist.js`](src/lib/intelligence/tetherBlacklist.js) → intel `ISSUER_FREEZE` | `TETHER_FROZEN` | 100 | Block |
-| 2 | **Government sanctions** (OFAC, EU, UK, UN, NBCTF) | [`sanctionsRegistry.js`](src/lib/intelligence/sanctionsRegistry.js) → intel `SANCTIONS` | `SANCTIONS_OFAC` | 100 | Block |
+| 2 | **Government sanctions** (OFAC, EU, UK, UN, NBCTF) | [`sanctionsRegistry.js`](src/lib/intelligence/sanctionsRegistry.js) → intel `SANCTIONS` | `SANCTIONS_OFAC` when a US OFAC source lists it, otherwise `SANCTIONS_DESIGNATION` | 100 | Block |
 | 3 | Tether freeze with no sanctions match | Steps 1 and 1b | `TETHER_FROZEN` | 100 | Block |
 | 4 | **OSINT hack / exploit** label | intel `HACK_EXPLOIT` | `EXCHANGE_EXPLOIT` | 82 | Review |
 | 4 | **OSINT scam / phishing** label | intel `SCAM_PHISHING` | `PHISHING_SCAM` | 75 | Review |

@@ -226,14 +226,31 @@ export async function evaluateTransactionRisk({
     badgeColor = "#EAB308";
   }
 
+  // 7b. Checks that could not run. A wallet that looks clean but wasn't fully checked is UNKNOWN,
+  // never LOW: a failed lookup must not read as "OK to transact". Worse levels stand on their evidence.
+  const checkGaps = [
+    ...(senderEntity.checkGaps || []),
+    ...(recipientEntity?.checkGaps || []).map((g) => `Recipient: ${g}`),
+  ];
+  if (exposure?.coverage.status === "unavailable") {
+    checkGaps.push(...exposure.coverage.errors.map((e) => `Counterparty trace did not run. ${e}`));
+  }
+  if (riskLevel === "LOW" && checkGaps.length) {
+    riskLevel = "UNKNOWN";
+    recommendedAction = "RETRY_OR_MANUAL_REVIEW";
+    badgeColor = "#64748B";
+  }
+
   // 8. Generate Glass Box Rationale Summary
   let summaryText = `Transaction of ${formatUsdt(amountUsdt)} on ${chainConfig.name} (${chainConfig.standard}) passed screening with low risk indicators.`;
   if (riskLevel === "CRITICAL") {
-    const isOfac = riskIndicators.some(i => i.category === "SANCTIONS_OFAC");
+    const sanctioned = riskIndicators.find(i => i.category === "SANCTIONS_OFAC" || i.category === "SANCTIONS_DESIGNATION");
     const frozen = riskIndicators.find(i => i.category === "TETHER_FROZEN");
     const isTetherFreeze = frozen?.providers?.[0] === "TETHER ON-CHAIN";
-    if (isOfac) {
-      summaryText = `CRITICAL ALERT: Direct interaction with U.S. OFAC designated sanctioned entity on ${chainConfig.name}. Immediate freeze required under OFAC compliance regulations.`;
+    if (sanctioned) {
+      // Name the authorities that actually list the wallet; only an OFAC listing is called OFAC.
+      const by = sanctioned.providers?.length ? sanctioned.providers.join(", ") : "a government sanctions list";
+      summaryText = `CRITICAL ALERT: Direct interaction with a sanctioned entity on ${chainConfig.name} (designated by ${by}). Immediate freeze required under sanctions compliance regulations.`;
     } else if (frozen && isTetherFreeze) {
       summaryText = `CRITICAL ALERT: Counterparty wallet is officially blacklisted on-chain by Tether on ${chainConfig.name} (${chainConfig.standard}). USDT transfer attempts will fail or expose the VASP to seized assets.`;
     } else if (frozen) {
@@ -254,6 +271,13 @@ export async function evaluateTransactionRisk({
       `${riskLevel} RISK on ${chainConfig.name}: wallet is not listed itself, but has counterparty exposure. ${topExposure.reason}` +
       (more > 0 ? ` (+${more} more exposure finding${more > 1 ? "s" : ""}.)` : "") +
       ` ${action}`;
+  }
+  if (riskLevel === "UNKNOWN") {
+    summaryText =
+      `UNVERIFIED on ${chainConfig.name}: no adverse findings, but the screening could not be completed. ` +
+      `${checkGaps.join(" ")} Retry, or review manually before transacting.`;
+  } else if (checkGaps.length) {
+    summaryText += ` Note: some checks could not run (${checkGaps.join(" ")})`;
   }
 
   const generatedTxHash = txHash || `${effectiveChain}_SIM_${Date.now()}`;
@@ -300,6 +324,7 @@ export async function evaluateTransactionRisk({
         }
       : null,
     riskIndicators: riskIndicators,
+    checkGaps,
     exposure: exposure ? exposure.coverage : null,
     exposureGraph: exposure?.graph || null,
     networkFindings,
