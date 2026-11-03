@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { EXPOSURE_RULES as R } from "@/lib/exposure/rules";
+import { EXPOSURE_RULES as R, BEHAVIOUR_RULES as B } from "@/lib/exposure/rules";
 
 const usd = (n) => `$${n.toLocaleString("en-US")}`;
 const LIMIT = R.historyLimit.toLocaleString();
@@ -56,9 +56,28 @@ const STEPS = [
     ],
   },
   {
+    id: "behaviour",
+    title: "How does it move money? (behaviour)",
+    text:
+      "Catches wallets no list names yet, from how they move money, how old they are and who paid their first fees. " +
+      `Behaviour alone is at most MEDIUM; two red flags together, or a sanctioned / frozen funder, is HIGH. Never CRITICAL.`,
+    chips: [
+      `Wallet age: TRON account record; ETH / BSC first gas received`,
+      `Pass-through: money leaves within ${B.passThroughMaxHoldMin} min, ${B.passThroughMinCycles}+ times`,
+      `Collector / distributor: ${B.fanMinWallets}+ wallets in, ${B.fanMaxOther} or fewer out (or the reverse)`,
+      `New wallet: under ${B.newWalletDays} days old and ${usd(B.newWalletMinUsd)}+ moved`,
+      `Poisoner: tiny transfers to ${B.poisonerMinTargets}+ wallets`,
+      `Structuring: ${B.structuringMinCount}+ amounts just under $1,000 / $3,000 / $10,000 within ${B.structuringWindowH} h`,
+      "Funded by a listed wallet: who paid its first fees",
+      `Layering: follows the main money path up to ${B.layeringMaxHops} wallets each way through wallets under ${B.layeringFreshDays} days old that pass money on within ${B.layeringMaxHoldH} h`,
+      `Wallet factory: its fee payer funded ${B.factoryMinWallets}+ wallets in ${B.factoryWindowDays} days`,
+      { warn: true, text: "Exchange-like wallets (very busy) stop the trace and are not flagged: an exchange deposit address is shown as information" },
+    ],
+  },
+  {
     id: "verdict",
     title: "Decide the result",
-    text: "The most serious finding sets the level. Exposure alone never makes a wallet CRITICAL.",
+    text: "The most serious finding sets the level. Exposure or behaviour alone never makes a wallet CRITICAL.",
     rules: [
       ["CRITICAL", "text-red-400", "The wallet itself is sanctioned or frozen"],
       [

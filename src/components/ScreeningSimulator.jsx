@@ -8,6 +8,7 @@ import {
   getExplorerAddressUrl,
   getExplorerTxUrl,
 } from "@/lib/chains/chainConfig";
+import { BEHAVIOUR_RULES } from "@/lib/exposure/rules";
 
 // Verdict banner per risk level. HIGH / MEDIUM come from counterparty exposure or OSINT labels;
 // only the wallet's own sanctions / freeze listing is CRITICAL.
@@ -54,6 +55,7 @@ const LEVEL_PILL = {
   HIGH: "bg-orange-500/15 text-orange-300 border-orange-500/40",
   MEDIUM: "bg-amber-500/15 text-amber-300 border-amber-500/40",
   LOW: "bg-slate-500/15 text-slate-300 border-slate-500/40",
+  INFO: "bg-sky-500/15 text-sky-300 border-sky-500/40",
 };
 
 const usd = (n) => `$${Math.round(n || 0).toLocaleString("en-US")}`;
@@ -156,6 +158,128 @@ function ExposurePanel({ result }) {
           </ul>
         </details>
       )}
+    </div>
+  );
+}
+
+const short = (a) => (a ? `${a.slice(0, 8)}…${a.slice(-6)}` : "");
+
+/** "2 years 3 months" / "5 days" / "less than a day". */
+function ageText(days) {
+  if (days === null || days === undefined) return null;
+  if (days < 1) return "less than a day";
+  if (days < 60) return `${days} day${days === 1 ? "" : "s"}`;
+  const years = Math.floor(days / 365);
+  const months = Math.floor((days % 365) / 30);
+  return [years && `${years} year${years === 1 ? "" : "s"}`, months && `${months} month${months === 1 ? "" : "s"}`]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Wallet age line, shown for every result. Under 7 days is highlighted. */
+function WalletAge({ result }) {
+  const w = result.wallet;
+  if (!w) return null;
+  const age = ageText(w.ageDays);
+  const fresh = w.ageDays !== null && w.ageDays < BEHAVIOUR_RULES.newWalletDays;
+  const source = w.ageSource === "account" ? "from account record" : "first gas received";
+  return (
+    <p className={`text-[11px] ${fresh ? "text-amber-300 font-semibold" : "text-slate-400"}`}>
+      Wallet age:{" "}
+      {age ? `${age} (created ${new Date(w.createdAt).toISOString().slice(0, 10)}, ${source})` : "unknown"}
+      {w.funder && (
+        <>
+          {" "}&bull; First fees paid by{" "}
+          <a href={getExplorerAddressUrl(result.chain, w.funder.address)} target="_blank" rel="noopener noreferrer" className="font-mono text-cyan-400 hover:underline">
+            {short(w.funder.address)} &#x2197;
+          </a>
+          {w.funder.listed && <span className="text-red-300"> (listed)</span>}
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
+ * Layering path in money order, e.g. listed wallet → new wallet → new wallet → this wallet.
+ * Traced layers are stored nearest-to-this-wallet first, so the "back" side is reversed.
+ */
+function LayeringPath({ result, evidence }) {
+  const layer = (l) => ({ address: l.address, label: `new wallet, ${ageText(l.ageDays)} old, held ${l.holdHours} h` });
+  const self = { address: null, label: "This wallet" };
+  const end = evidence.end && { address: evidence.end.address, label: evidence.end.entity };
+  let rows;
+  if (evidence.direction === "back") rows = [end, ...[...evidence.layers].reverse().map(layer), self];
+  else if (evidence.direction === "forward") rows = [self, ...evidence.layers.map(layer), end];
+  else rows = [...[...evidence.back].reverse().map(layer), self, ...evidence.forward.map(layer)];
+  return (
+    <ol className="mt-1 space-y-0.5 text-[11px] text-slate-300">
+      {rows.map((r, i) => (
+        <li key={i} className="flex flex-wrap items-center gap-1.5">
+          {i > 0 && <span className="text-slate-500">&darr;</span>}
+          {r.address ? (
+            <a href={getExplorerAddressUrl(result.chain, r.address)} target="_blank" rel="noopener noreferrer" className="font-mono text-cyan-400 hover:underline">
+              {short(r.address)}
+            </a>
+          ) : null}
+          <span>{r.label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** How the wallet moves money: behaviour findings, scored unless the wallet is listed itself. */
+function BehaviourPanel({ result }) {
+  const b = result.behaviour;
+  if (!b) return null;
+  const infoOnly = Array.isArray(result.behaviourFindings);
+  const findings = infoOnly ? result.behaviourFindings : b.indicators;
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+          Behaviour ({findings.length} finding{findings.length === 1 ? "" : "s"})
+        </h3>
+        <div className="flex flex-wrap gap-1.5">
+          {infoOnly && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-sky-900/40 text-sky-300 border border-sky-500/40">
+              Information only
+            </span>
+          )}
+          {b.coverage.funder === "unavailable" && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
+              Funder lookup unavailable
+            </span>
+          )}
+          {b.coverage.layering === "partial" && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
+              Layering trace partial
+            </span>
+          )}
+        </div>
+      </div>
+
+      {b.coverage.status === "skipped" && (
+        <p className="text-xs text-amber-300">Behaviour checks need the transfer history, which could not be fetched.</p>
+      )}
+      {findings.length === 0 && b.coverage.status !== "skipped" && (
+        <p className="text-xs text-emerald-300">No suspicious money-movement patterns found.</p>
+      )}
+
+      {findings.map((f) => (
+        <div key={f.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${LEVEL_PILL[f.severity] || LEVEL_PILL.LOW}`}>{f.severity}</span>
+            <span className="text-xs font-semibold text-white">{f.categoryLabel}</span>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">{f.reason}</p>
+          {(f.type === "LAYERED_FROM_LISTED" || f.type === "LAYERED_TO_LISTED" || f.type === "LAYERING_CHAIN") && (
+            <LayeringPath result={result} evidence={f.evidence} />
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -369,7 +493,9 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           {/* Big Unmistakable Good vs Bad Verdict Banner */}
           {(() => {
             const v = VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
-            const listing = result.riskIndicators?.find((i) => i.kind !== "EXPOSURE");
+            // The wallet's own listing: not an exposure or behaviour finding.
+            const listing = result.riskIndicators?.find((i) => i.kind !== "EXPOSURE" && i.kind !== "BEHAVIOUR");
+            const behaviourLed = !listing && result.highestRiskCategory === "SUSPICIOUS_BEHAVIOUR";
             return (
               <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${v.panel}`}>
                 <div className="flex items-center space-x-3.5">
@@ -390,6 +516,8 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                         ? "Nothing bad found, but some checks could not run. Do not treat this wallet as clean until it is re-checked."
                         : listing
                         ? `Listed: ${listing.entity} (${listing.categoryLabel}).`
+                        : behaviourLed
+                        ? "Not listed, but behaves like a high-risk wallet. See behaviour below."
                         : "Not listed itself, but has moved USDT with listed wallets. See counterparty exposure below."}
                     </p>
                     {result.checkGaps?.length > 0 && (
@@ -445,6 +573,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                 <span className="text-[11px] text-slate-400">
                   {result.chainName} ({result.tokenStandard}) &bull; ID: {result.screeningId}
                 </span>
+                <WalletAge result={result} />
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -468,6 +597,8 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           </p>
 
           <ExposurePanel result={result} />
+
+          <BehaviourPanel result={result} />
 
           {/* Flow Graph for Simulator Result */}
           <HopFlowGraph evaluation={result} />
