@@ -70,7 +70,7 @@ const dustNote = (a) =>
     : "";
 
 /** The most severe risky listing of an intel entry, or null if it carries none. */
-function riskOf(entry) {
+export function riskOf(entry) {
   const category = LISTED_ORDER.find((c) => entry.sources.some((s) => s.category === c));
   if (!category) return null;
   const sources = entry.sources.filter((s) => s.category === category);
@@ -280,7 +280,7 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
   } catch (err) {
     coverage.status = "unavailable";
     coverage.errors.push(`Transfer history unavailable: ${err.message}`);
-    return { indicators: [], coverage, graph: null };
+    return { indicators: [], coverage, graph: null, history: null };
   }
 
   // ---- Hop 1: the wallet's own counterparties
@@ -428,5 +428,6 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
   }
 
   indicators.sort((a, b) => b.score - a.score || a.hopDistance - b.hopDistance || b.amountUsdt - a.amountUsdt);
-  return { indicators, coverage, graph: pruneGraph(graph.toJSON(), self) };
+  // `history` is for the behaviour detectors (server side only; the scorer doesn't return it).
+  return { indicators, coverage, graph: pruneGraph(graph.toJSON(), self), history };
 }

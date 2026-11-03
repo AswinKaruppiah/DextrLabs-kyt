@@ -73,6 +73,15 @@ export const RISK_CATEGORIES = {
     action: "ENHANCED_DUE_DILIGENCE",
     color: "#EAB308",
   },
+  // Not on any list, but moves money like a high-risk wallet (behaviour detectors).
+  SUSPICIOUS_BEHAVIOUR: {
+    id: "SUSPICIOUS_BEHAVIOUR",
+    label: "Suspicious Behaviour",
+    severity: "MEDIUM",
+    baseScore: 50,
+    action: "ENHANCED_DUE_DILIGENCE",
+    color: "#EAB308",
+  },
   REGULATED_EXCHANGE: {
     id: "REGULATED_EXCHANGE",
     label: "Regulated Exchange Hot Wallet",

@@ -25,11 +25,12 @@ function mainCounterparty(transfers, direction) {
   return best && best.usd / total >= R.layeringDominantShare ? best : null;
 }
 
-const isHub = ({ transfers, truncated }) =>
+/** Exchange-like wallet: too many counterparties (or too much history) to be one person's. */
+export const isHub = ({ transfers, truncated }) =>
   (truncated?.in && truncated?.out) || new Set(transfers.map((t) => t.cp)).size >= R.hubCounterparties;
 
 /** A fresh wallet that passes its money on quickly; returns its layer record or null. */
-function asLayer(address, history, createdAt, now) {
+export function asLayer(address, history, createdAt, now) {
   const ageDays = walletAgeDays(createdAt, now);
   if (ageDays === null || ageDays > R.layeringFreshDays) return null;
   const h = holdStats(history.transfers);

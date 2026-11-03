@@ -1,6 +1,7 @@
 import { resolveEntity, RISK_CATEGORIES } from "../intelligence/entityAttribution";
 import { formatUsdt } from "../tron/tronUtils";
 import { analyzeExposure } from "../exposure/exposure";
+import { analyzeBehaviour } from "../behaviour/analyzeBehaviour";
 import {
   SUPPORTED_CHAINS,
   detectChainFromAddress,
@@ -127,6 +128,27 @@ export async function evaluateTransactionRisk({
     }
   }
   const topExposure = (!senderListed && exposure?.indicators[0]) || null;
+
+  // 4b. Behaviour: how the wallet moves money, its age and who funded it. Like exposure, a listed
+  // wallet's findings are information only (`behaviourFindings`). Equal scores keep the listing /
+  // exposure category, since those name a concrete counterparty.
+  let behaviour = null;
+  let behaviourFindings = null;
+  if (!hasCustomHops && from) {
+    behaviour = await analyzeBehaviour(effectiveChain, from, exposure?.history ?? null);
+    if (senderListed) {
+      behaviourFindings = behaviour.indicators;
+    } else {
+      for (const ind of behaviour.indicators) {
+        riskIndicators.push(ind);
+        if (ind.score > highestScore) {
+          highestScore = ind.score;
+          highestCategory = RISK_CATEGORIES.SUSPICIOUS_BEHAVIOUR;
+        }
+      }
+    }
+  }
+  const topBehaviour = (!senderListed && behaviour?.indicators.find((i) => i.score > 0)) || null;
 
   // 5. Multi-hop upstream/downstream tracing
   const flowPath = [];
@@ -271,6 +293,9 @@ export async function evaluateTransactionRisk({
       `${riskLevel} RISK on ${chainConfig.name}: wallet is not listed itself, but has counterparty exposure. ${topExposure.reason}` +
       (more > 0 ? ` (+${more} more exposure finding${more > 1 ? "s" : ""}.)` : "") +
       ` ${action}`;
+  } else if (topBehaviour && topBehaviour.score === highestScore && (riskLevel === "HIGH" || riskLevel === "MEDIUM")) {
+    const action = { HIGH: "Mandatory SAR review required.", MEDIUM: "Enhanced Due Diligence (EDD) recommended." }[riskLevel];
+    summaryText = `${riskLevel} RISK on ${chainConfig.name}: suspicious behaviour. ${topBehaviour.reason} ${action}`;
   }
   if (riskLevel === "UNKNOWN") {
     summaryText =
@@ -328,6 +353,9 @@ export async function evaluateTransactionRisk({
     exposure: exposure ? exposure.coverage : null,
     exposureGraph: exposure?.graph || null,
     networkFindings,
+    behaviour: behaviour ? { indicators: behaviour.indicators, coverage: behaviour.coverage } : null,
+    behaviourFindings,
+    wallet: behaviour?.wallet || null,
     flowPath: flowPath,
     highestRiskCategory: highestCategory ? highestCategory.id : "NONE",
   };
