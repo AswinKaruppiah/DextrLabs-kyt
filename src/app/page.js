@@ -4,10 +4,11 @@ import React, { useState } from "react";
 import MetricsHeader from "@/components/MetricsHeader";
 import ScreeningSimulator from "@/components/ScreeningSimulator";
 import SanctionedWalletsDirectory from "@/components/SanctionedWalletsDirectory";
+import TronscanSecurityCheck from "@/components/TronscanSecurityCheck";
 import { SUPPORTED_CHAINS, getExplorerAddressUrl } from "@/lib/chains/chainConfig";
 
 export default function KytDashboardPage() {
-  const [activeTab, setActiveTab] = useState("CHECKER"); // "CHECKER" | "SANCTIONS"
+  const [activeTab, setActiveTab] = useState("CHECKER"); // "CHECKER" | "SANCTIONS" | "NEW"
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
@@ -42,6 +43,17 @@ export default function KytDashboardPage() {
             >
               <span className="flex h-2 w-2 rounded-full bg-red-400 animate-pulse"></span>
               <span>Sanctioned Wallets Directory</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("NEW")}
+              className={`px-4 py-2 rounded-lg transition-all flex items-center gap-2 ${
+                activeTab === "NEW"
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 font-bold"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <span>✨</span>
+              <span>Official Data Check</span>
             </button>
           </div>
 
@@ -97,6 +109,11 @@ export default function KytDashboardPage() {
         {activeTab === "SANCTIONS" && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <SanctionedWalletsDirectory />
+          </div>
+        )}
+        {activeTab === "NEW" && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <TronscanSecurityCheck />
           </div>
         )}
       </main>
