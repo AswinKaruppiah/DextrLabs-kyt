@@ -36,7 +36,8 @@ export const BEHAVIOUR_RULES = {
   structuringBands: [1_000, 3_000, 10_000], // amounts in [0.9 * band, band) are "just below"
   structuringMinCount: 5, // >= this many just-below transfers...
   structuringWindowH: 24, // ...inside any window of this many hours
-  hubCounterparties: 500, // a wallet with this many counterparties (or truncated both ways) is a hub
+  hubCounterparties: 500, // a wallet with this many counterparties is a hub...
+  hubMinCounterpartiesTruncated: 50, // ...or with this many, if it also has more history than we read both ways
   // Layering: money passed through a row of fresh wallets to get past the 2-hop exposure trace
   layeringMaxHops: 6, // follow the main money path at most this many wallets each way
   layeringDominantShare: 0.5, // follow a counterparty only if it is >= 50% of the wallet's in (or out) flow

@@ -28,11 +28,14 @@ function mainCounterparty(transfers, direction) {
 
 /**
  * Exchange-like wallet: too many counterparties (or too much history) to be one person's.
- * Dust doesn't count, so spraying tiny transfers can't make a wallet look like a hub.
+ * Dust doesn't count, so spraying tiny transfers can't make a wallet look like a hub; more history
+ * than we read also needs real counterparties, so years of trading with a few wallets or $0
+ * poisoning spam isn't enough.
  */
-export const isHub = ({ transfers, truncated }) =>
-  (truncated?.in && truncated?.out) ||
-  new Set(transfers.filter((t) => t.usd >= EXPOSURE_RULES.dustUsd).map((t) => t.cp)).size >= R.hubCounterparties;
+export const isHub = ({ transfers, truncated }) => {
+  const real = new Set(transfers.filter((t) => t.usd >= EXPOSURE_RULES.dustUsd).map((t) => t.cp)).size;
+  return real >= R.hubCounterparties || (truncated?.in && truncated?.out && real >= R.hubMinCounterpartiesTruncated);
+};
 
 /** A fresh wallet that passes its money on quickly; returns its layer record or null. */
 export function asLayer(address, history, createdAt, now) {

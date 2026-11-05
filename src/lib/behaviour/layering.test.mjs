@@ -193,6 +193,18 @@ test("isHub ignores dust counterparties", () => {
   assert.equal(isHub({ transfers: real, truncated: FULL }), true);
 });
 
+test("isHub: truncated both ways needs enough real counterparties", () => {
+  const BOTH = { in: true, out: true };
+  // A long-time user trading with a handful of wallets, or a poisoning victim full of $0 spam.
+  const fewContacts = Array.from({ length: 1000 }, (_, i) => t(`F${i % 5}`, i % 2 ? "in" : "out", 200, i));
+  const poisoned = [...fewContacts, ...Array.from({ length: 900 }, (_, i) => t(`P${i}`, "out", 0, i))];
+  assert.equal(isHub({ transfers: fewContacts, truncated: BOTH }), false);
+  assert.equal(isHub({ transfers: poisoned, truncated: BOTH }), false);
+  // An exchange: busy both ways with many real counterparties.
+  const exchange = Array.from({ length: 100 }, (_, i) => t(`E${i}`, i % 2 ? "in" : "out", 300, i));
+  assert.equal(isHub({ transfers: exchange, truncated: BOTH }), true);
+});
+
 test("forward: last fresh wallet before a hub is a deposit address, not a layer", async () => {
   const hubTransfers = Array.from({ length: 600 }, (_, i) => t(`U${i}`, "in", 100, 1000 + i));
   const world = {
