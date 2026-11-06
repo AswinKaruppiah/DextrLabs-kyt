@@ -153,3 +153,15 @@ test("complete history, no creation record -> age from the oldest transfer", asy
   assert.equal(r.wallet.ageDays, 3);
   assert.equal(r.wallet.ageSource, "first-transfer");
 });
+
+test("distributor paying a hub is not relabelled an exchange deposit address", async () => {
+  // One funder in, 60 recipients out; the largest recipient is an exchange-like hub.
+  const history = {
+    transfers: [t("SRC", "in", 70_000, 3000), t("HOT", "out", 9_000, 100), ...many(60, (i) => t(`R${i}`, "out", 900, 200 + i))],
+    truncated: FULL,
+  };
+  const r = await run(history, fakeDeps({ world: { HOT: hubHistory } }));
+  const types = r.indicators.map((i) => i.type);
+  assert.ok(types.includes("DISTRIBUTOR"), `got ${types}`);
+  assert.equal(types.includes("DEPOSIT_ADDRESS"), false);
+});

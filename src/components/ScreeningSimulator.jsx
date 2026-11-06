@@ -508,7 +508,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           
           {/* Big Unmistakable Good vs Bad Verdict Banner */}
           {(() => {
-            const v = ((result.partialHistory || result.partialTrace) && VERDICTS.LOW_PARTIAL) || VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
+            const v = ((result.partialHistory || result.partialTrace || result.behaviourGaps?.length) && VERDICTS.LOW_PARTIAL) || VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
             // The wallet's own listing: not an exposure or behaviour finding.
             const listing = result.riskIndicators?.find((i) => i.kind !== "EXPOSURE" && i.kind !== "BEHAVIOUR");
             const behaviourLed = !listing && result.highestRiskCategory === "SUSPICIOUS_BEHAVIOUR";
@@ -542,6 +542,8 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                         ? `Not on any list, and nothing significant found in its newest ${EXPOSURE_RULES.historyLimit.toLocaleString()} transfers each way. This wallet has more history than that, and older transfers were not screened.`
                         : result.partialTrace
                         ? "Not on any list, and no significant exposure found, but some counterparties could not be traced in time. Retry for a full check."
+                        : result.behaviourGaps?.length
+                        ? `Not on any list, and no significant exposure found, but the ${result.behaviourGaps.join(", ")} did not finish. Retry for a full check.`
                         : result.noHistory
                         ? "Not on any sanctions, freeze or scam list. It has no USDT transfers on this chain yet, so there was no history to trace."
                         : result.riskLevel === "LOW"

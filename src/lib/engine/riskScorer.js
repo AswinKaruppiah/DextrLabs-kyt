@@ -278,7 +278,21 @@ export async function evaluateTransactionRisk({
   // wallets are unchecked. The direct check ran, so LOW stands, but not a plain "OK to transact".
   const hop2 = exposure?.coverage.hop2;
   const partialTrace = riskLevel === "LOW" && exposure?.coverage.status === "partial" && hop2?.failed > 0;
-  if (partialHistory || partialTrace) recommendedAction = "APPROVE_WITH_CAUTION";
+  // Behaviour checks that can raise a scored finding (listed funder / wallet factory, layering to a
+  // listed wallet, mixer contract) but did not finish. Pattern-only checks are unscored, so not listed.
+  const bc = behaviour?.coverage;
+  const behaviourGaps =
+    riskLevel !== "LOW" || !bc
+      ? []
+      : bc.status === "failed"
+      ? ["behaviour checks"]
+      : [
+          bc.funder === "unavailable" && "first-funder lookup",
+          bc.funderChecks === "unavailable" && "funder checks",
+          bc.layering === "partial" && "layering trace",
+          bc.mixer === "partial" && "mixer check",
+        ].filter(Boolean);
+  if (partialHistory || partialTrace || behaviourGaps.length) recommendedAction = "APPROVE_WITH_CAUTION";
   // No USDT transfers at all: nothing to trace, so "no exposure found" would overstate the check.
   const noHistory = riskLevel === "LOW" && exposure?.coverage.status !== "unavailable" && exposure?.coverage.hop1?.transfers === 0;
 
@@ -337,6 +351,9 @@ export async function evaluateTransactionRisk({
       ` Partial check: ${hop2.failed} of ${hop2.failed + hop2.followed} counterpart${hop2.failed + hop2.followed === 1 ? "y" : "ies"} ` +
       `could not be traced, so their links to listed wallets were not checked. Retry for a full check.`;
   }
+  if (behaviourGaps.length) {
+    summaryText += ` Partial check: the ${behaviourGaps.join(", ")} did not finish, so related findings may be missing. Retry for a full check.`;
+  }
   if (riskLevel === "UNKNOWN") {
     summaryText =
       `UNVERIFIED on ${chainConfig.name}: no adverse findings, but the screening could not be completed. ` +
@@ -392,6 +409,7 @@ export async function evaluateTransactionRisk({
     checkGaps,
     partialHistory,
     partialTrace,
+    behaviourGaps,
     noHistory,
     exposure: exposure ? exposure.coverage : null,
     exposureGraph: exposure?.graph || null,

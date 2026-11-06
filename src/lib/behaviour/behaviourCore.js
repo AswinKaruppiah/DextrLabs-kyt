@@ -134,7 +134,8 @@ async function historySignals(self, history, deps, call, deadline, now) {
   } else {
     signals.push(detectStructuring(transfers));
     const pattern = [detectFanPattern(transfers), detectPassThrough(transfers)].filter(Boolean);
-    signals.push(...(await Promise.all(pattern.map((s) => checkDepositAddress(s, deps, call)))));
+    // Only money swept *in* and on to a hub looks like a deposit address; a distributor pays out to many.
+    signals.push(...(await Promise.all(pattern.map((s) => (s.type === "DISTRIBUTOR" ? s : checkDepositAddress(s, deps, call))))));
   }
   const layerDeps = { getHistory: deps.getHistory, getAge: deps.getAge, getRisk: deps.getRisk, deadline, now };
   // Runs for busy wallets too: a mixer pool is itself a very busy address.
