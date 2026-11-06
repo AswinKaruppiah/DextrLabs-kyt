@@ -397,7 +397,8 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
   const followed = traced.filter((t) => t.agg);
   const listed2 = await lookupAddresses(chain, [...new Set(followed.flatMap((t) => [...t.agg.byCp.keys()]))]);
   const frozen2 = await freezeTimes([...listed2.values()]);
-  const seen2 = new Set(risky1);
+  // One finding per listed wallet: the strongest route to it (a later route may be large where the first was small).
+  const best2 = new Map();
 
   for (const { via, agg: viaAgg } of followed) {
     for (const agg of viaAgg.byCp.values()) {
@@ -414,11 +415,14 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
       // Every route to a listed wallet is drawn, even when it was already found another way.
       graph.node(agg.cp, { hop: 2, role: "listed", volumeUsd: Math.round(agg.inUsd + agg.outUsd), risk: riskData(risk, level) });
       graph.link(via.cp, agg, 2);
-      if (seen2.has(agg.cp)) continue;
-      seen2.add(agg.cp);
+      if (risky1.has(agg.cp)) continue; // already a direct (hop-1) finding
       const pct = viaAgg.totalUsd ? (agg.counted / viaAgg.totalUsd) * 100 : 0;
-      indicators.push(
-        indicator({
+      const prev = best2.get(agg.cp);
+      if (prev && (LEVEL_SCORES[level] < prev.score || (LEVEL_SCORES[level] === prev.score && Math.min(agg.counted, via.counted) <= prev.strength))) continue;
+      best2.set(agg.cp, {
+        score: LEVEL_SCORES[level],
+        strength: Math.min(agg.counted, via.counted),
+        ind: indicator({
           hop: 2,
           level,
           risk,
@@ -430,10 +434,11 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
             `2 hops: this wallet ${flowVerb(via)} ${via.cp}, which ${flowVerb(agg)} ` +
             `${risk.entity} (${risk.providers.join(", ")})${dustNote(agg)}, last on ${day(agg.lastTs)}.` +
             (frozenAt ? freezeNote(frozenAt) : ""),
-        })
-      );
+        }),
+      });
     }
   }
+  indicators.push(...[...best2.values()].map((b) => b.ind));
 
   const failed = traced.filter((t) => t.error);
   coverage.hop2 = {

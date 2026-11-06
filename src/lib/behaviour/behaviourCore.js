@@ -177,9 +177,12 @@ export async function buildBehaviour({ address: self, history, now = Date.now(),
   const historyWork = history ? historySignals(self, history, deps, call, deadline, now) : null;
 
   const { funding, age } = await funderWork;
-  // USDT can arrive before the first gas: the oldest transfer seen also bounds the age.
+  // USDT can arrive before the first gas: the oldest transfer seen also bounds the age. With no
+  // record of creation, only a complete history dates the wallet: a truncated one holds only its
+  // newest transfers, so a years-old busy wallet would look days old.
   const transfers = history?.transfers || [];
-  const createdAt = earliestActivity(age.createdAt, transfers);
+  const complete = !history?.truncated?.in && !history?.truncated?.out;
+  const createdAt = age.createdAt != null || complete ? earliestActivity(age.createdAt, transfers) : null;
   const wallet = {
     createdAt,
     ageDays: walletAgeDays(createdAt, now),

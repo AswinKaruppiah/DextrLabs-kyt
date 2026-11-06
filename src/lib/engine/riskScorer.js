@@ -274,19 +274,29 @@ export async function evaluateTransactionRisk({
   // A busy wallet is screened on its newest transfers only, so older contact with a listed wallet
   // can't show. Still LOW (retrying won't read more), but never a plain "OK to transact".
   const partialHistory = riskLevel === "LOW" && !!exposure?.coverage.hop1?.truncated;
-  if (partialHistory) recommendedAction = "APPROVE_WITH_CAUTION";
+  // Some counterparties could not be traced (API error / time limit): their links to listed
+  // wallets are unchecked. The direct check ran, so LOW stands, but not a plain "OK to transact".
+  const hop2 = exposure?.coverage.hop2;
+  const partialTrace = riskLevel === "LOW" && exposure?.coverage.status === "partial" && hop2?.failed > 0;
+  if (partialHistory || partialTrace) recommendedAction = "APPROVE_WITH_CAUTION";
+  // No USDT transfers at all: nothing to trace, so "no exposure found" would overstate the check.
+  const noHistory = riskLevel === "LOW" && exposure?.coverage.status !== "unavailable" && exposure?.coverage.hop1?.transfers === 0;
 
   // 8. Generate Glass Box Rationale Summary
   let summaryText =
     Number(amountUsdt) > 0
       ? `Transaction of ${formatUsdt(amountUsdt)} on ${chainConfig.name} (${chainConfig.standard}) passed screening with low risk indicators.`
-      : `Wallet passed screening on ${chainConfig.name} (${chainConfig.standard}): not on any list, and no significant exposure found.`;
+      : noHistory
+        ? `Wallet passed screening on ${chainConfig.name} (${chainConfig.standard}): not on any list. It has no USDT transfers on this chain yet, so there was no transaction history to trace.`
+        : `Wallet passed screening on ${chainConfig.name} (${chainConfig.standard}): not on any list, and no significant exposure found.`;
   // Which wallet the listing belongs to: the screened (sending) wallet, or the recipient.
   const who = isSenderFlagged || !isRecipientFlagged ? "This wallet" : "The recipient wallet";
   const listing = riskIndicators.find((i) => i.direction === "ORIGIN") || riskIndicators.find((i) => i.direction === "DESTINATION");
   if (riskLevel === "CRITICAL") {
-    const sanctioned = riskIndicators.find(i => i.category === "SANCTIONS_OFAC" || i.category === "SANCTIONS_DESIGNATION");
-    const frozen = riskIndicators.find(i => i.category === "TETHER_FROZEN");
+    // Only the wallets' own listings: exposure indicators carry their counterparty's category.
+    const own = riskIndicators.filter((i) => i.direction === "ORIGIN" || i.direction === "DESTINATION");
+    const sanctioned = own.find(i => i.category === "SANCTIONS_OFAC" || i.category === "SANCTIONS_DESIGNATION");
+    const frozen = own.find(i => i.category === "TETHER_FROZEN");
     const isTetherFreeze = frozen?.providers?.[0] === "TETHER ON-CHAIN";
     if (sanctioned) {
       // Name the authorities that actually list the wallet; only an OFAC listing is called OFAC.
@@ -321,6 +331,11 @@ export async function evaluateTransactionRisk({
     summaryText +=
       ` Partial check: this wallet has more than ${EXPOSURE_RULES.historyLimit.toLocaleString()} USDT transfers in a direction, ` +
       `and only the newest ${EXPOSURE_RULES.historyLimit.toLocaleString()} were screened. Older contact with listed wallets would not show.`;
+  }
+  if (partialTrace) {
+    summaryText +=
+      ` Partial check: ${hop2.failed} of ${hop2.failed + hop2.followed} counterpart${hop2.failed + hop2.followed === 1 ? "y" : "ies"} ` +
+      `could not be traced, so their links to listed wallets were not checked. Retry for a full check.`;
   }
   if (riskLevel === "UNKNOWN") {
     summaryText =
@@ -376,6 +391,8 @@ export async function evaluateTransactionRisk({
     riskIndicators: riskIndicators,
     checkGaps,
     partialHistory,
+    partialTrace,
+    noHistory,
     exposure: exposure ? exposure.coverage : null,
     exposureGraph: exposure?.graph || null,
     networkFindings,

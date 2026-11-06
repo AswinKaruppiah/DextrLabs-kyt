@@ -49,7 +49,8 @@ async function tronDirection(address, direction) {
     }
     fingerprint = body.meta?.fingerprint || null;
   } while (fingerprint && transfers.length < HISTORY_LIMIT);
-  return { transfers: transfers.slice(0, HISTORY_LIMIT), truncated: !!fingerprint };
+  // The last page can overshoot the limit: the transfers cut off are unread history too.
+  return { transfers: transfers.slice(0, HISTORY_LIMIT), truncated: !!fingerprint || transfers.length > HISTORY_LIMIT };
 }
 
 /** One direction of an Ethereum / BSC wallet's USDT history from Alchemy's Transfers API, newest first. */

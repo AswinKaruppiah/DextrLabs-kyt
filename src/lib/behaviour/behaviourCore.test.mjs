@@ -138,3 +138,18 @@ test("no transfer history -> skipped, age still reported", async () => {
   assert.equal(r.wallet.ageDays, 3);
   assert.deepEqual(r.indicators, []);
 });
+
+test("truncated history, no creation record -> age unknown, not the oldest transfer read", async () => {
+  // A busy wallet: only its newest transfers (the last 12 days) were read in one direction.
+  const history = { transfers: many(40, (i) => t(`C${i}`, "in", 500, (i + 1) * 300)), truncated: { in: true, out: false } };
+  const r = await run(history, fakeDeps());
+  assert.equal(r.wallet.ageDays, null);
+  assert.equal(r.indicators.some((s) => s.type === "NEW_WALLET_HIGH_VOLUME"), false);
+});
+
+test("complete history, no creation record -> age from the oldest transfer", async () => {
+  const history = { transfers: [t("A", "in", 300, 3 * 1440)], truncated: FULL };
+  const r = await run(history, fakeDeps());
+  assert.equal(r.wallet.ageDays, 3);
+  assert.equal(r.wallet.ageSource, "first-transfer");
+});

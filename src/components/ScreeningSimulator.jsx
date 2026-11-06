@@ -300,28 +300,27 @@ function BehaviourPanel({ result }) {
 }
 
 export default function ScreeningSimulator({ targetAddress = "", targetChain = "" }) {
-  const [selectedChain, setSelectedChain] = useState("TRON");
+  // Props only seed the form. To screen another address, a parent should remount with a new `key`.
+  const [selectedChain, setSelectedChain] = useState(targetChain || "TRON");
   const [fromAddress, setFromAddress] = useState(targetAddress || "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  // Id of the screening whose answer we still want; a reset or newer run makes older answers stale.
+  const requestId = React.useRef(0);
 
   const currentChainConfig = SUPPORTED_CHAINS[selectedChain] || SUPPORTED_CHAINS.TRON;
 
-  // Sync when parent requests checking a specific address
-  React.useEffect(() => {
-    if (targetAddress) {
-      setFromAddress(targetAddress);
-      if (targetChain) {
-        setSelectedChain(targetChain);
-      }
-    }
-  }, [targetAddress, targetChain]);
+  const resetResult = () => {
+    requestId.current++;
+    setLoading(false);
+    setResult(null);
+    setError(null);
+  };
 
   const handleChainChange = (chain) => {
     setSelectedChain(chain);
-    setResult(null);
-    setError(null);
+    resetResult();
   };
 
   // Auto-detect chain when typing or pasting address
@@ -347,6 +346,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
     }
 
     setLoading(true);
+    const id = ++requestId.current;
 
     try {
       const res = await fetch("/api/kyt/screen", {
@@ -360,16 +360,18 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Screening failed");
+      // A gateway timeout or crash returns an HTML page, not JSON.
+      const data = await res.json().catch(() => ({}));
+      if (id !== requestId.current) return; // the form was reset or re-run meanwhile
+      if (!res.ok || !data.riskLevel) {
+        throw new Error(data.error || `Screening failed (HTTP ${res.status}). Please retry.`);
       }
 
       setResult(data);
     } catch (err) {
-      setError(err.message);
+      if (id === requestId.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
@@ -457,8 +459,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                 type="button"
                 onClick={() => {
                   setFromAddress("");
-                  setResult(null);
-                  setError(null);
+                  resetResult();
                 }}
                 title="Clear address"
                 className="absolute right-3 top-2.5 text-slate-400 hover:text-white text-xs transition-colors"
@@ -507,7 +508,7 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           
           {/* Big Unmistakable Good vs Bad Verdict Banner */}
           {(() => {
-            const v = (result.partialHistory && VERDICTS.LOW_PARTIAL) || VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
+            const v = ((result.partialHistory || result.partialTrace) && VERDICTS.LOW_PARTIAL) || VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
             // The wallet's own listing: not an exposure or behaviour finding.
             const listing = result.riskIndicators?.find((i) => i.kind !== "EXPOSURE" && i.kind !== "BEHAVIOUR");
             const behaviourLed = !listing && result.highestRiskCategory === "SUSPICIOUS_BEHAVIOUR";
@@ -539,6 +540,10 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                         ? `Threat: ${listing?.entity || "Sanctions / Blacklist"} • Action: ${result.recommendedAction}`
                         : result.partialHistory
                         ? `Not on any list, and nothing significant found in its newest ${EXPOSURE_RULES.historyLimit.toLocaleString()} transfers each way. This wallet has more history than that, and older transfers were not screened.`
+                        : result.partialTrace
+                        ? "Not on any list, and no significant exposure found, but some counterparties could not be traced in time. Retry for a full check."
+                        : result.noHistory
+                        ? "Not on any sanctions, freeze or scam list. It has no USDT transfers on this chain yet, so there was no history to trace."
                         : result.riskLevel === "LOW"
                         ? "Not on any sanctions, freeze or scam list, and no significant exposure to listed wallets."
                         : result.riskLevel === "UNKNOWN"
