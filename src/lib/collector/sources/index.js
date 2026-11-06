@@ -22,13 +22,14 @@ import {
 import { defiHackLabs } from "./defiHackLabs.js";
 import { lazarusTayvano } from "./lazarusTayvano.js";
 import { ellipticBinanceHack } from "./ellipticBinanceHack.js";
+import { tornadoCash } from "./tornadoCash.js";
 
 /**
  * Every collection source, highest tier first.
  *  Tier 1 — government sanctions / seizure orders / law-enforcement attributions
  *  Tier 2 — stablecoin issuer freezes
  *  Tier 3 — court-documented fraud addresses
- *  Tier 4 — OSINT / security-vendor scam & hack labels
+ *  Tier 4 — OSINT / security-vendor scam & hack labels, known mixer contracts
  */
 export const SOURCES = [
   ofacSdn,
@@ -55,6 +56,7 @@ export const SOURCES = [
   defiHackLabs,
   lazarusTayvano,
   ellipticBinanceHack,
+  tornadoCash,
 ];
 
 export const getSource = (id) => SOURCES.find((s) => s.id === id);

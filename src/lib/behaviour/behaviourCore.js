@@ -11,17 +11,32 @@ import {
   earliestActivity,
 } from "./detectors.js";
 import { traceLayering, layeringSignal, isHub, asLayer } from "./layering.js";
+import { mixerSignals } from "./mixer.js";
 import { withinDeadline } from "./deadline.js";
 
 /**
  * Behaviour findings for one wallet, with every lookup injected (see analyzeBehaviour.js for the
  * real ones), so the combining rules are testable:
  * deps = { findFirstFunder(a), getWalletAge(a, funding), countFundedWallets(funder),
- *          getHistory(a), getRisk(a), getAge(a) }
+ *          getHistory(a), getRisk(a), getAge(a), isContract(a) }
  * All work shares one `deadline`; a lookup that misses it is reported in `coverage`, never thrown.
  */
 
 const LEVEL_SCORES = { HIGH: 75, MEDIUM: 50, INFO: 0 };
+
+// Findings from money-movement patterns alone. Measured on real wallets (2026-11-06) they flagged
+// 35% of normal wallets and 26% of known-bad ones, and no threshold separated the two, so they are
+// shown for review but not scored. Findings tied to a list (listed funder, layering to / from a
+// listed wallet, mixer-like contract) and wallet factories still score.
+const PATTERN_ONLY = new Set([
+  "PASS_THROUGH",
+  "COLLECTOR",
+  "DISTRIBUTOR",
+  "NEW_WALLET_HIGH_VOLUME",
+  "POISONER",
+  "STRUCTURING",
+  "LAYERING_CHAIN",
+]);
 const DAY_MS = 86_400_000;
 
 const LABELS = {
@@ -39,6 +54,8 @@ const LABELS = {
   LAYERED_TO_LISTED: "Layered funds to a listed wallet",
   LAYERING_CHAIN: "Layering through new wallets",
   WALLET_FACTORY: "Wallet factory",
+  MIXER_LIKE: "Works like a mixer",
+  MIXER_LIKE_COUNTERPARTY: "Dealt with a mixer-like contract",
   COMBINED_BEHAVIOUR: "Several behaviour red flags",
 };
 
@@ -54,11 +71,15 @@ const toIndicator = (s) => ({
   evidence: s.evidence,
 });
 
-/** COLLECTOR / PASS_THROUGH that sweep to an exchange-like wallet are deposit addresses, not red flags. */
+/**
+ * COLLECTOR / PASS_THROUGH that sweep to an exchange-like wallet are deposit addresses, not red flags.
+ * A listed target (a mixer router is busy too) is not an exchange: the signal stands.
+ */
 async function checkDepositAddress(sig, deps, call) {
   const target = sig.evidence.targets?.[0]?.address;
   if (!target) return sig;
   try {
+    if (await call(deps.getRisk(target))) return sig;
     if (!isHub(await call(deps.getHistory(target)))) return sig;
   } catch {
     return sig; // can't tell: keep the signal for review
@@ -116,8 +137,14 @@ async function historySignals(self, history, deps, call, deadline, now) {
     signals.push(...(await Promise.all(pattern.map((s) => checkDepositAddress(s, deps, call)))));
   }
   const layerDeps = { getHistory: deps.getHistory, getAge: deps.getAge, getRisk: deps.getRisk, deadline, now };
-  const [back, forward] = await Promise.all([traceLayering(self, "back", layerDeps), traceLayering(self, "forward", layerDeps)]);
-  return { signals, busy, back, forward };
+  // Runs for busy wallets too: a mixer pool is itself a very busy address.
+  const [back, forward, mixer] = await Promise.all([
+    traceLayering(self, "back", layerDeps),
+    traceLayering(self, "forward", layerDeps),
+    mixerSignals(self, history, deps, call),
+  ]);
+  signals.push(...mixer.signals);
+  return { signals, busy, back, forward, mixer: mixer.status };
 }
 
 export async function buildBehaviour({ address: self, history, now = Date.now(), deadline, deps }) {
@@ -128,6 +155,7 @@ export async function buildBehaviour({ address: self, history, now = Date.now(),
     funder: "none",
     funderChecks: "skipped",
     layering: history ? "complete" : "skipped",
+    mixer: "skipped",
   };
 
   const funderWork = (async () => {
@@ -179,6 +207,7 @@ export async function buildBehaviour({ address: self, history, now = Date.now(),
     signals.push(...hist.signals);
     if (!hist.busy) signals.push(detectNewWallet(transfers, { createdAt, truncated: history.truncated }, now));
     if (hist.back.partial || hist.forward.partial) coverage.layering = "partial";
+    coverage.mixer = hist.mixer;
     signals.push(layeringSignal(hist.back, hist.forward, !!asLayer(self, history, createdAt, now)));
   }
 
@@ -193,6 +222,12 @@ export async function buildBehaviour({ address: self, history, now = Date.now(),
         : s
     );
   }
+
+  found = found.map((s) =>
+    PATTERN_ONLY.has(s.type) && s.level !== "INFO"
+      ? { ...s, level: "INFO", reason: `${s.reason} (Pattern only: shown for review, not scored.)` }
+      : s
+  );
 
   const { combined } = combineSignals(found);
   if (combined) {

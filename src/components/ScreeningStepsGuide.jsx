@@ -27,6 +27,7 @@ const STEPS = [
       "Freeze lists: Tether, Circle, Paxos, TUSD",
       "Sanctions: OFAC, UN, EU, UK, IL-NBCTF",
       "Scam / phishing / hack labels",
+      "Known mixers: Tornado Cash contracts (ETH / BSC)",
     ],
   },
   {
@@ -39,6 +40,9 @@ const STEPS = [
       "TRON: TronGrid · ETH / BSC: Alchemy",
       `Incoming transfers under ${usd(R.dustUsd)} ignored (dust / poisoning), unless those from one wallet add up to ${usd(R.dustSumUsd)} or more`,
       "Sending to a listed wallet always counts",
+      "USDT sent into or received from a known mixer counts like a sanctioned / frozen wallet",
+      "Money moved with a frozen wallet only before its freeze still counts, one level lower",
+      "USDT sent to the USDT token contract itself (a lost transfer) is ignored",
     ],
   },
   {
@@ -60,7 +64,8 @@ const STEPS = [
     title: "How does it move money? (behaviour)",
     text:
       "Catches wallets no list names yet, from how they move money, how old they are and who paid their first fees. " +
-      `Behaviour alone is at most MEDIUM. HIGH needs two red flags together, a sanctioned / frozen funder, or money layered from / to a sanctioned / frozen wallet through 2+ new wallets. Never CRITICAL.`,
+      `Money-movement patterns alone (pass-through, collector / distributor, new wallet, poisoner, structuring, layering through new wallets) are shown for review but not scored: on real wallets they flagged normal wallets as often as bad ones. ` +
+      `What scores: a listed or wallet-factory funder, money layered from / to a listed wallet (HIGH if sanctioned / frozen through 2+ new wallets), and mixer-like contracts (MEDIUM). Never CRITICAL.`,
     chips: [
       `Wallet age: TRON account record; ETH / BSC first gas received`,
       `Pass-through: money leaves within ${B.passThroughMaxHoldMin} min, ${B.passThroughMinCycles}+ times`,
@@ -71,6 +76,7 @@ const STEPS = [
       "Funded by a listed wallet: who paid its first fees",
       `Layering: follows the main money path up to ${B.layeringMaxHops} wallets each way through wallets under ${B.layeringFreshDays} days old that pass money on within ${B.layeringMaxHoldH} h`,
       `Wallet factory: its fee payer funded ${B.factoryMinWallets}+ wallets in ${B.factoryWindowDays} days`,
+      `Mixer-like contract (ETH / BSC): of its ${B.mixerCandidates} largest counterparties (and itself), a contract that ${B.mixerMinWallets}+ wallets paid into, ${Math.round(B.mixerFixedShare * 100)}%+ in the same ${B.mixerMaxDenominations} or fewer exact amounts, and that paid out to ${B.mixerMinWallets}+ wallets`,
       { warn: true, text: "Exchange-like wallets (very busy) stop the trace and are not flagged: an exchange deposit address is shown as information, and a very busy screened wallet skips the single-user pattern checks" },
     ],
   },
@@ -83,14 +89,19 @@ const STEPS = [
       [
         "HIGH",
         "text-orange-400",
-        `Wallet labelled scam / hack, or traded directly with a sanctioned / frozen wallet: ≥ ${usd(R.highUsd)} or ≥ ${R.highPct}% of its volume`,
+        `Wallet labelled scam / hack / mixer, or traded directly with a sanctioned / frozen wallet or known mixer: ≥ ${usd(R.highUsd)} or ≥ ${R.highPct}% of its volume`,
       ],
       [
         "MEDIUM",
         "text-amber-400",
-        `Smaller direct exposure to a sanctioned / frozen wallet, large direct exposure to scam / hack wallets, or ≥ ${usd(R.highUsd)} between a counterparty and a sanctioned / frozen wallet at hop 2`,
+        `Smaller direct exposure to a sanctioned / frozen wallet or known mixer, large direct exposure to scam / hack wallets, or hop 2 where the wallet moved ≥ ${usd(R.highUsd)} with a counterparty that moved ≥ ${usd(R.highUsd)} with a sanctioned / frozen wallet or known mixer`,
       ],
       ["LOW", "text-emerald-400", "Nothing found, or only small scam / hack or hop-2 exposure (shown for context)"],
+      [
+        "LOW (PARTIAL)",
+        "text-amber-300",
+        `Nothing found, but the wallet has more than ${R.historyLimit.toLocaleString()} transfers in a direction, so its older history was not screened. Proceed with caution`,
+      ],
       ["UNKNOWN", "text-slate-300", "Nothing found, but the transfer history or live freeze check could not be fetched. Re-check before transacting"],
     ],
   },

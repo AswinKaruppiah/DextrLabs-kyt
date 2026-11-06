@@ -1,4 +1,6 @@
 import { getTransferHistory } from "../exposure/transferHistory.js";
+import { jsonRpc } from "../collector/util/http.js";
+import { alchemyUrl } from "../chains/alchemy.js";
 import { riskOf } from "../exposure/exposure.js";
 import { lookupAddresses } from "../collector/store.js";
 import { normalizeAddress } from "../collector/util/address.js";
@@ -17,6 +19,13 @@ async function createdAtOf(chain, address) {
   const age = await getWalletAge(chain, address, null);
   if (age.createdAt) return age.createdAt;
   return (await findFirstFunder(chain, address))?.ts ?? null;
+}
+
+/** Is the address a contract? ETH / BSC only (eth_getCode); null on TRON, where no mixers run. */
+async function isContract(chain, address) {
+  if (chain === "TRON") return null;
+  const code = await jsonRpc(alchemyUrl(chain), "eth_getCode", [address, "latest"], { retries: 1, timeoutMs: 10_000 });
+  return !!code && code !== "0x";
 }
 
 /**
@@ -38,6 +47,7 @@ export function analyzeBehaviour(chain, address, history) {
       getHistory: (a) => getTransferHistory(chain, a),
       getRisk: (a) => riskFor(chain, a),
       getAge: (a) => createdAtOf(chain, a),
+      isContract: (a) => isContract(chain, a),
     },
   });
 }

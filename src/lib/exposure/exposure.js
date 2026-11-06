@@ -4,15 +4,20 @@ import { normalizeAddress } from "../collector/util/address.js";
 import { RISK_CATEGORIES } from "../intelligence/entityAttribution";
 import { sanctionsCategoryId } from "../intelligence/sanctionsRegistry";
 import { EXPOSURE_RULES } from "./rules.js";
+import { SUPPORTED_CHAINS } from "../chains/chainConfig";
+import { freezeTime } from "./freezeTime.js";
 
 export { EXPOSURE_RULES };
 
 const LEVEL_SCORES = { HIGH: 75, MEDIUM: 50, LOW: 20 };
 
 // Intel categories that make a counterparty risky, most severe first. `severe` = government or
-// issuer action; the others are OSINT labels and rank one level lower.
+// issuer action, or a known mixer (funds through it have no traceable source); the others are
+// OSINT labels and rank one level lower. MIXER sits above ISSUER_FREEZE: issuers froze the
+// Tornado Cash pools only because they were sanctioned, so "mixer" is what explains the address.
 const LISTED = {
   SANCTIONS: { severe: true, risk: RISK_CATEGORIES.SANCTIONS_OFAC },
+  MIXER: { severe: true, risk: RISK_CATEGORIES.MIXER },
   ISSUER_FREEZE: { severe: true, risk: RISK_CATEGORIES.TETHER_FROZEN },
   HACK_EXPLOIT: { severe: false, risk: RISK_CATEGORIES.EXCHANGE_EXPLOIT },
   SCAM_PHISHING: { severe: false, risk: RISK_CATEGORIES.PHISHING_SCAM },
@@ -20,6 +25,9 @@ const LISTED = {
 const LISTED_ORDER = Object.keys(LISTED);
 
 const usd = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
+// A freeze is often the end of a scam: money moved with the wallet before it was frozen can still
+// be dirty, so it counts, one level lower than money moved after the freeze.
+const LOWER = { HIGH: "MEDIUM", MEDIUM: "LOW", LOW: "LOW" };
 const day = (ts) => new Date(ts).toISOString().slice(0, 10);
 
 /**
@@ -92,7 +100,18 @@ const flowVerb = (a) =>
       ? `received ${usd(a.counted)} from`
       : `sent ${usd(a.counted)} to`;
 
-function indicator({ hop, level, risk, agg, pct, via, reason }) {
+/** Freeze times (ms) of the issuer-frozen entries among `entries`, by entry key. */
+async function freezeTimes(entries) {
+  const frozen = entries.filter((e) => riskOf(e)?.category === "ISSUER_FREEZE");
+  const times = await Promise.all(frozen.map((e) => freezeTime(e)));
+  return new Map(frozen.map((e, i) => [e.key, times[i]]));
+}
+
+/** The freeze time when every transfer with the frozen wallet came before it, else null. */
+const frozenAfter = (frozenAt, agg) => (frozenAt && agg.lastTs < frozenAt ? frozenAt : null);
+const freezeNote = (ts) => ` All of it before the wallet was frozen on ${day(ts)}, so ranked one level lower.`;
+
+function indicator({ hop, level, risk, agg, pct, via, reason, frozenAt }) {
   return {
     id: `IND-EXP-H${hop}-${agg.cp}`,
     kind: "EXPOSURE",
@@ -110,6 +129,7 @@ function indicator({ hop, level, risk, agg, pct, via, reason }) {
     confidence: risk.severe ? "LISTED_COUNTERPARTY" : "OSINT_COUNTERPARTY",
     providers: risk.providers,
     reason,
+    beforeFreeze: frozenAt ? day(frozenAt) : null,
     sampleTx: agg.largest ? { hash: agg.largest.tx, usd: agg.largest.usd, timestamp: agg.largest.ts } : null,
     evidence: [
       {
@@ -283,9 +303,14 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
     return { indicators: [], coverage, graph: null, history: null };
   }
 
+  // USDT sent to the token contract itself is lost by mistake, not paid to anyone. Tether
+  // blacklisted its own contracts, so it would otherwise read as dealing with a frozen wallet.
+  const token = normalizeAddress(SUPPORTED_CHAINS[chain].contract);
+
   // ---- Hop 1: the wallet's own counterparties
-  const hop1 = aggregate(history.transfers, new Set([self]));
+  const hop1 = aggregate(history.transfers, new Set([self, token]));
   const listed1 = await lookupAddresses(chain, [...hop1.byCp.keys()]);
+  const frozen1 = await freezeTimes([...listed1.values()]);
   const indicators = [];
   const risky1 = new Set();
   const graph = graphBuilder();
@@ -307,7 +332,9 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
     }
     const pct = hop1.totalUsd ? (agg.counted / hop1.totalUsd) * 100 : 0;
     const large = agg.counted >= EXPOSURE_RULES.highUsd || pct >= EXPOSURE_RULES.highPct;
-    const level = risk.severe ? (large ? "HIGH" : "MEDIUM") : large ? "MEDIUM" : "LOW";
+    const frozenAt = frozenAfter(frozen1.get(entry.key), agg);
+    const full = risk.severe ? (large ? "HIGH" : "MEDIUM") : large ? "MEDIUM" : "LOW";
+    const level = frozenAt ? LOWER[full] : full;
     hop1Node(agg, { role: "listed", risk: riskData(risk, level) });
     indicators.push(
       indicator({
@@ -316,9 +343,11 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
         risk,
         agg,
         pct,
+        frozenAt,
         reason:
           `Directly ${flowVerb(agg)} ${risk.entity} (${risk.providers.join(", ")})${dustNote(agg)} — ` +
-          `${pct.toFixed(1)}% of this wallet's volume, last on ${day(agg.lastTs)}.`,
+          `${pct.toFixed(1)}% of this wallet's volume, last on ${day(agg.lastTs)}.` +
+          (frozenAt ? freezeNote(frozenAt) : ""),
       })
     );
   }
@@ -351,7 +380,7 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
       const h = await withDeadline(getTransferHistory(chain, via.cp), deadline);
       // Busy wallets are traced too, on their newest transfers only (`truncated`). Transfer
       // count alone can't tell an exchange from an active person, so nothing is skipped.
-      return { via, agg: aggregate(h.transfers, new Set([self, via.cp])), truncated: h.truncated.in || h.truncated.out };
+      return { via, agg: aggregate(h.transfers, new Set([self, via.cp, token])), truncated: h.truncated.in || h.truncated.out };
     } catch (err) {
       return { via, error: err.message };
     }
@@ -367,6 +396,7 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
 
   const followed = traced.filter((t) => t.agg);
   const listed2 = await lookupAddresses(chain, [...new Set(followed.flatMap((t) => [...t.agg.byCp.keys()]))]);
+  const frozen2 = await freezeTimes([...listed2.values()]);
   const seen2 = new Set(risky1);
 
   for (const { via, agg: viaAgg } of followed) {
@@ -375,8 +405,12 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
       const entry = listed2.get(agg.cp);
       const risk = entry && riskOf(entry);
       if (!risk) continue;
-      // Hop 2 is capped at MEDIUM: the intermediary may be an unrelated party.
-      const level = risk.severe && agg.counted >= EXPOSURE_RULES.highUsd ? "MEDIUM" : "LOW";
+      // Hop 2 is capped at MEDIUM: the intermediary may be an unrelated party. MEDIUM needs both
+      // links to be large: a small payment from someone who once dealt with a listed wallet is context.
+      const frozenAt = frozenAfter(frozen2.get(entry.key), agg);
+      const bothLarge = Math.min(agg.counted, via.counted) >= EXPOSURE_RULES.highUsd;
+      const full = risk.severe && bothLarge ? "MEDIUM" : "LOW";
+      const level = frozenAt ? LOWER[full] : full;
       // Every route to a listed wallet is drawn, even when it was already found another way.
       graph.node(agg.cp, { hop: 2, role: "listed", volumeUsd: Math.round(agg.inUsd + agg.outUsd), risk: riskData(risk, level) });
       graph.link(via.cp, agg, 2);
@@ -390,10 +424,12 @@ export async function analyzeExposure(chain, address, { followOutflows = false }
           risk,
           agg,
           pct,
+          frozenAt,
           via: { address: via.cp, volumeUsd: Math.round(via.inUsd + via.outUsd), direction: flowDirection(via) },
           reason:
             `2 hops: this wallet ${flowVerb(via)} ${via.cp}, which ${flowVerb(agg)} ` +
-            `${risk.entity} (${risk.providers.join(", ")})${dustNote(agg)}, last on ${day(agg.lastTs)}.`,
+            `${risk.entity} (${risk.providers.join(", ")})${dustNote(agg)}, last on ${day(agg.lastTs)}.` +
+            (frozenAt ? freezeNote(frozenAt) : ""),
         })
       );
     }

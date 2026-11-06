@@ -82,6 +82,8 @@ export const ethLabels = {
       items: list.map((row) => ({
         address: row.address,
         statedChain: CHAINS.ETHEREUM,
+        // Most of this set is phishing ("Fake_Phishing123", "Phishing Token"); only the rest are hacks.
+        category: /phish|scam|fake/i.test(row.nameTag || "") ? "SCAM_PHISHING" : "HACK_EXPLOIT",
         entity: row.nameTag || "Etherscan Phish/Hack label",
         reference: { id: "etherscan-phish-hack", url: `https://etherscan.io/address/${row.address}` },
       })),

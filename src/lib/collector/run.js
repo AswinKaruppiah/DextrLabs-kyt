@@ -8,7 +8,8 @@ const WRITE_BATCH = 1000;
 
 // Confidence penalty when an EVM address is applied to a chain the publisher did not name.
 const MIRROR_PENALTY = 10;
-const CATEGORY_PRIORITY = ["SANCTIONS", "ISSUER_FREEZE", "HACK_EXPLOIT", "SCAM_PHISHING"];
+// MIXER is last: it names the service, so any listing of what the wallet did outranks it.
+const CATEGORY_PRIORITY = ["SANCTIONS", "ISSUER_FREEZE", "HACK_EXPLOIT", "SCAM_PHISHING", "MIXER"];
 
 // A source that doesn't finish in time keeps its current listings (sources can override).
 const DEFAULT_SOURCE_TIMEOUT_MS = 4 * 60 * 1000;

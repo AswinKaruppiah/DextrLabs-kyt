@@ -59,11 +59,22 @@ export const RISK_CATEGORIES = {
   },
   PHISHING_SCAM: {
     id: "PHISHING_SCAM",
-    label: "Phishing / Wallet Drainer",
+    // Covers phishing / drainers, poisoners, and court-documented fraud platforms and brokers.
+    label: "Scam / Phishing / Fraud",
     severity: "HIGH",
     baseScore: 75,
     action: "MANUAL_REVIEW_SAR",
     color: "#F59E0B",
+  },
+  // A known mixer contract (Tornado Cash): it hides where funds came from, so funds passing
+  // through it need review. Not sanctions (OFAC delisted Tornado Cash on 2025-03-21).
+  MIXER: {
+    id: "MIXER",
+    label: "Mixer / Privacy Pool",
+    severity: "HIGH",
+    baseScore: 70,
+    action: "MANUAL_REVIEW_SAR",
+    color: "#A855F7",
   },
   UNLICENSED_SHADOW_OTC: {
     id: "UNLICENSED_SHADOW_OTC",
@@ -103,11 +114,14 @@ export const RISK_CATEGORIES = {
 // Known Regulated Exchanges (to be populated from external dynamic source)
 const REGULATED_EXCHANGES = {};
 
-// OSINT categories in the intel database -> risk categories. Tier-4 labels never block on their own.
+// OSINT categories in the intel database -> risk categories, in the order one is picked when an
+// address carries several. Tier-4 labels never block on their own.
 const OSINT_CATEGORY_MAP = {
   HACK_EXPLOIT: RISK_CATEGORIES.EXCHANGE_EXPLOIT,
+  MIXER: RISK_CATEGORIES.MIXER,
   SCAM_PHISHING: RISK_CATEGORIES.PHISHING_SCAM,
 };
+const OSINT_ORDER = Object.keys(OSINT_CATEGORY_MAP);
 
 /**
  * Resolves full entity attribution for a wallet address across TRON, Ethereum, or BSC.
@@ -244,8 +258,8 @@ export async function resolveEntity(address, chain = "TRON") {
   // 4. Check OSINT scam / phishing / hack labels from the intel database
   const osint = (await lookupAddress(effectiveChain, cleanAddr))?.sources.filter((s) => OSINT_CATEGORY_MAP[s.category]) || [];
   if (osint.length) {
-    // Hack/exploit outranks scam/phishing when both are present.
-    const primary = osint.find((s) => s.category === "HACK_EXPLOIT") || osint[0];
+    // Hack/exploit outranks mixer, which outranks scam/phishing.
+    const primary = OSINT_ORDER.map((c) => osint.find((s) => s.category === c)).find(Boolean);
     return {
       address: cleanAddr,
       chain: effectiveChain,
@@ -311,7 +325,7 @@ export async function resolveEntity(address, chain = "TRON") {
       {
         source: `${chainConfig.name} Blockchain Telemetry`,
         confidence: "Low Risk - No Adverse Intelligence",
-        details: `No historical links to known illicit clusters, mixers, or sanctions registries on ${chainConfig.name}.`,
+        details: `Not on any sanctions, freeze, scam / hack or known-mixer list on ${chainConfig.name}.`,
       },
     ],
   };

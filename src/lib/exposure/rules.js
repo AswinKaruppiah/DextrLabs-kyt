@@ -48,4 +48,10 @@ export const BEHAVIOUR_RULES = {
   // Wallet factory: one funder paying the first fees of many new wallets
   factoryMinWallets: 20, // funder sent first gas to >= this many different wallets...
   factoryWindowDays: 30, // ...within this many days
+  // Mixer-like contract (ETH / BSC only): an unlisted contract that works like a mixer pool
+  mixerCandidates: 5, // the largest counterparties checked for being a contract
+  mixerMinWallets: 20, // >= this many different depositors AND >= this many different recipients
+  mixerMinDeposits: 20, // >= this many incoming (non-dust) transfers...
+  mixerFixedShare: 0.8, // ...of which >= 80% use the same few exact amounts (pool sizes)
+  mixerMaxDenominations: 3, // "few" = at most this many different amounts
 };

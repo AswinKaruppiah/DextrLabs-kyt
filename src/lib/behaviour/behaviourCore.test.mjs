@@ -19,6 +19,7 @@ function fakeDeps({ world = {}, funding = null, createdAt = null, funded = { wal
     getHistory: async (a) => world[a] || { transfers: [], truncated: FULL },
     getRisk: async () => null,
     getAge: async () => null,
+    isContract: async () => false,
     ...over,
   };
 }
@@ -40,6 +41,37 @@ test("exchange deposit address: collector sweeping to a hub, gas from a filler w
   const r = await run(history, deps);
   assert.deepEqual(r.indicators.filter((i) => i.score > 0).map((i) => i.type), []);
   assert.ok(r.indicators.some((i) => i.type === "DEPOSIT_ADDRESS"));
+});
+
+test("pass-through into a listed busy address (a mixer router) is not called an exchange deposit address", async () => {
+  const history = {
+    transfers: [
+      t("A", "in", 500, 100), t("ROUTER", "out", 500, 90),
+      t("A", "in", 500, 80), t("ROUTER", "out", 500, 70),
+      t("A", "in", 500, 60), t("ROUTER", "out", 500, 50),
+    ],
+    truncated: FULL,
+  };
+  const deps = fakeDeps({
+    world: { ROUTER: hubHistory },
+    getRisk: async (a) => (a === "ROUTER" ? { entity: "Tornado Cash — router", providers: ["x"], severe: true, risk: { id: "MIXER" } } : null),
+  });
+  const r = await run(history, deps);
+  assert.ok(!r.indicators.some((i) => i.type === "DEPOSIT_ADDRESS"));
+  assert.equal(r.indicators.find((i) => i.type === "PASS_THROUGH")?.severity, "INFO"); // pattern only: shown, not scored
+});
+
+test("two pattern-only red flags (pass-through + new wallet) are shown but not scored: no HIGH", async () => {
+  const history = {
+    transfers: many(6, (i) => [t("A", "in", 5000, 300 - i * 20), t("B", "out", 4990, 290 - i * 20)]).flat(),
+    truncated: FULL,
+  };
+  const r = await run(history, fakeDeps({ createdAt: NOW - 2 * DAY }));
+  const types = r.indicators.map((i) => i.type);
+  assert.ok(types.includes("PASS_THROUGH") && types.includes("NEW_WALLET_HIGH_VOLUME"));
+  assert.ok(r.indicators.every((i) => i.score === 0));
+  assert.equal(r.combined, false);
+  assert.match(r.indicators.find((i) => i.type === "PASS_THROUGH").reason, /not scored/);
 });
 
 test("wallet factory: funder paid 30 wallets, this one funded 2 days ago -> WALLET_FACTORY MEDIUM", async () => {

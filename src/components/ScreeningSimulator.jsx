@@ -8,8 +8,8 @@ import {
   getExplorerAddressUrl,
   getExplorerTxUrl,
 } from "@/lib/chains/chainConfig";
-import { BEHAVIOUR_RULES } from "@/lib/exposure/rules";
-import { formatAge } from "@/lib/behaviour/format";
+import { BEHAVIOUR_RULES, EXPOSURE_RULES } from "@/lib/exposure/rules";
+import { formatAge, countOf } from "@/lib/behaviour/format";
 
 // Verdict banner per risk level. HIGH / MEDIUM come from counterparty exposure or OSINT labels;
 // only the wallet's own sanctions / freeze listing is CRITICAL.
@@ -41,6 +41,14 @@ const VERDICTS = {
     action: "OK TO TRANSACT",
     panel: "bg-emerald-950/70 border-emerald-500/40 text-emerald-100",
     badge: "bg-emerald-500 text-white border-emerald-400",
+  },
+  // LOW, but only the newest transfers of a busy wallet were read: older history wasn't screened.
+  LOW_PARTIAL: {
+    icon: "✅",
+    title: "LOW RISK (PARTIAL CHECK)",
+    action: "OK, WITH CAUTION",
+    panel: "bg-emerald-950/70 border-amber-500/50 text-emerald-100",
+    badge: "bg-amber-500 text-slate-950 border-amber-400",
   },
   // Nothing bad found, but a check failed (history fetch, live freeze check), so it can't be called good.
   UNKNOWN: {
@@ -97,15 +105,15 @@ function ExposurePanel({ result }) {
 
       {hop1 && (
         <p className="text-[11px] text-slate-400 leading-relaxed">
-          Hop 1: {hop1.transfers.toLocaleString()} transfers with {hop1.counterparties.toLocaleString()} wallets ({usd(hop1.volumeUsd)} volume)
+          Hop 1: {countOf(hop1.transfers, "transfer")} with {countOf(hop1.counterparties, "wallet")} ({usd(hop1.volumeUsd)} volume)
           {hop1.truncated && " — newest 1,000 per direction only"}
           {hop2 && (
             <>
-              {" "}&bull; Hop 2: followed {hop2.followed} of the {infoOnly ? "largest recipients / counterparties" : "largest counterparties"} ({hop2.counterparties.toLocaleString()} more wallets)
+              {" "}&bull; Hop 2: followed {hop2.followed} of the {infoOnly ? "largest recipients / counterparties" : "largest counterparties"} ({countOf(hop2.counterparties, "more wallet")})
               {hop2.truncated > 0 && `, ${hop2.truncated} of them from their newest 1,000 transfers only`}
             </>
           )}
-          {hop1.dustIgnored > 0 && <> &bull; {hop1.dustIgnored} incoming dust transfers ignored</>}
+          {hop1.dustIgnored > 0 && <> &bull; {countOf(hop1.dustIgnored, "incoming dust transfer")} ignored</>}
           {hop1.cached && <> &bull; history cached {new Date(hop1.fetchedAt).toLocaleString()}</>}
         </p>
       )}
@@ -255,6 +263,11 @@ function BehaviourPanel({ result }) {
           {b.coverage.layering === "partial" && (
             <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
               Layering trace partial
+            </span>
+          )}
+          {b.coverage.mixer === "partial" && (
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-900/40 text-amber-300 border border-amber-500/40">
+              Mixer check partial
             </span>
           )}
         </div>
@@ -494,17 +507,29 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
           
           {/* Big Unmistakable Good vs Bad Verdict Banner */}
           {(() => {
-            const v = VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
+            const v = (result.partialHistory && VERDICTS.LOW_PARTIAL) || VERDICTS[result.riskLevel] || VERDICTS.MEDIUM;
             // The wallet's own listing: not an exposure or behaviour finding.
             const listing = result.riskIndicators?.find((i) => i.kind !== "EXPOSURE" && i.kind !== "BEHAVIOUR");
             const behaviourLed = !listing && result.highestRiskCategory === "SUSPICIOUS_BEHAVIOUR";
+            // The title names why: a sanctions listing or a freeze; the wallet's own listing, its
+            // behaviour, or (the default) its counterparties.
+            const sanctioned = result.sender?.isSanctioned || result.recipient?.isSanctioned;
+            const reason = { HIGH: "HIGH RISK", MEDIUM: "CAUTION" }[result.riskLevel];
+            const title =
+              result.riskLevel === "CRITICAL" && !sanctioned
+                ? "BAD / FROZEN WALLET"
+                : reason && listing
+                  ? `${reason} / LISTED WALLET`
+                  : reason && behaviourLed
+                    ? `${reason} / SUSPICIOUS BEHAVIOUR`
+                    : v.title;
             return (
               <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${v.panel}`}>
                 <div className="flex items-center space-x-3.5">
                   <span className="text-3xl">{v.icon}</span>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm font-black uppercase tracking-wider">{v.title}</span>
+                      <span className="text-sm font-black uppercase tracking-wider">{title}</span>
                       <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-black/40 border border-white/10 font-mono">
                         Score: {result.riskScore}/100
                       </span>
@@ -512,6 +537,8 @@ export default function ScreeningSimulator({ targetAddress = "", targetChain = "
                     <p className="text-xs mt-0.5 opacity-90 font-medium">
                       {result.riskLevel === "CRITICAL"
                         ? `Threat: ${listing?.entity || "Sanctions / Blacklist"} • Action: ${result.recommendedAction}`
+                        : result.partialHistory
+                        ? `Not on any list, and nothing significant found in its newest ${EXPOSURE_RULES.historyLimit.toLocaleString()} transfers each way. This wallet has more history than that, and older transfers were not screened.`
                         : result.riskLevel === "LOW"
                         ? "Not on any sanctions, freeze or scam list, and no significant exposure to listed wallets."
                         : result.riskLevel === "UNKNOWN"

@@ -16,6 +16,7 @@ import "@xyflow/react/dist/style.css";
 import { truncateAddress } from "@/lib/tron/tronUtils";
 import { getExplorerAddressUrl } from "@/lib/chains/chainConfig";
 import { EXPOSURE_RULES } from "@/lib/exposure/rules";
+import { countOf } from "@/lib/behaviour/format";
 
 const CARD_W = 230;
 const CARD_H = 80;
@@ -61,8 +62,8 @@ function roleLabel(n) {
 function nodeTitle(n, screenedEntity) {
   if (n.role === "listed") return n.risk.entity;
   if (n.role === "screened") return screenedEntity || "Screened wallet";
-  if (n.role === "more") return `+${n.count.toLocaleString()} more wallets`;
-  if (n.role === "more-listed") return `+${n.count.toLocaleString()} more listed wallets`;
+  if (n.role === "more") return `+${countOf(n.count, "more wallet")}`;
+  if (n.role === "more-listed") return `+${countOf(n.count, "more listed wallet")}`;
   return "Unlabelled wallet";
 }
 
@@ -98,7 +99,7 @@ function WalletNode({ data }) {
       {!isSummary(node) && <div className="font-mono text-[10px] text-slate-400">{truncateAddress(node.id)}</div>}
       <div className="mt-1 flex items-center justify-between text-[10px] text-slate-300">
         <span>{node.volumeUsd != null ? `${usd(node.volumeUsd)} volume` : ""}</span>
-        {node.counterparties != null && <span>{node.counterparties.toLocaleString()} wallets</span>}
+        {node.counterparties != null && <span>{countOf(node.counterparties, "wallet")}</span>}
         {node.risk && node.role === "listed" && <span className={`font-bold ${style.text}`}>{node.risk.level}</span>}
         {node.role === "more-listed" && <span className={`font-bold ${style.text}`}>see findings list</span>}
       </div>
@@ -318,7 +319,7 @@ export default function HopFlowGraph({ evaluation }) {
           </p>
         </div>
         <span className="px-2.5 py-1 text-xs font-mono font-medium rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-          {graph.nodes.length} wallets &bull; {listedCount} listed
+          {countOf(graph.nodes.length, "wallet")} &bull; {listedCount} listed
         </span>
       </div>
 
@@ -347,7 +348,7 @@ export default function HopFlowGraph({ evaluation }) {
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-400">
         {[
           ["border-cyan-400", "Screened wallet"],
-          ["border-orange-500", "Listed (sanctions / freeze / scam)"],
+          ["border-orange-500", "Listed (sanctions / freeze / scam / mixer)"],
           ["border-sky-600", "Traced to hop 2"],
           ["border-slate-700", "Other counterparty"],
         ].map(([cls, text]) => (
@@ -378,7 +379,7 @@ export default function HopFlowGraph({ evaluation }) {
                 </>
               )}
               Volume: {usd(active.volumeUsd)}
-              {active.txCount != null && <> &bull; {active.txCount} transfers</>}
+              {active.txCount != null && <> &bull; {countOf(active.txCount, "transfer")}</>}
               {active.truncated && <> &bull; traced on its newest 1,000 transfers per direction</>}
             </p>
             {activeReached.length > 0 && (

@@ -5,6 +5,8 @@ import { addressKey, normalizeAddress } from "./util/address.js";
 // Newest first; wallets found in the same run are ordered most severe first.
 const DIRECTORY_SORT = { firstSeen: -1, tier: 1, confidence: -1, _id: 1 };
 const HIDDEN_FIELDS = { _id: 0, search: 0 };
+// `category` is the entry's highest-priority listing, so MIXER means nothing else lists it.
+const VISIBLE = { category: { $ne: "MIXER" } };
 
 // One screening asks for the same address several times (Tether, sanctions, OSINT), so lookups
 // are cached briefly. A sync in this process clears the cache; one from the CLI ages out.
@@ -88,6 +90,9 @@ export async function queryIntel({
   const q = search.trim().toLowerCase();
 
   const conditions = {
+    // Mixer contracts are screening data, not sanctioned wallets: the directory leaves out
+    // addresses whose only active listing is a mixer.
+    listed: VISIBLE,
     search: q && { search: { $regex: escapeRegex(q) } },
     chain: chain !== "ALL" && { chain },
     category: category !== "ALL" && { categories: category },
@@ -107,7 +112,7 @@ export async function queryIntel({
     await Promise.all([
       wallets.find(filter, { projection: HIDDEN_FIELDS }).sort(DIRECTORY_SORT).skip(offset).limit(limit).toArray(),
       wallets.countDocuments(filter),
-      wallets.estimatedDocumentCount(),
+      wallets.countDocuments(VISIBLE),
       runs.findOne({ status: "done" }, { sort: { finishedAt: -1 } }),
       facet(wallets, filterExcept("chain"), "chain"),
       facet(wallets, filterExcept("category"), "categories", { array: true }),
@@ -123,7 +128,7 @@ export async function queryIntel({
     totalPages: Math.ceil(filteredCount / limit) || 1,
     facets: { chain: chainFacet, category: categoryFacet, source: sourceFacet, status: statusFacet },
     // Runs store only per-source status; name, authority etc. come from the source registry.
-    sources: (lastRun?.sources || []).map((s) => {
+    sources: (lastRun?.sources || []).filter((s) => getSource(s.id)?.category !== "MIXER").map((s) => {
       const meta = getSource(s.id) || {};
       return {
         id: s.id,

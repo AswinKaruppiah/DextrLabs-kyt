@@ -2,6 +2,7 @@ import { resolveEntity, RISK_CATEGORIES } from "../intelligence/entityAttributio
 import { formatUsdt } from "../tron/tronUtils";
 import { analyzeExposure } from "../exposure/exposure";
 import { analyzeBehaviour } from "../behaviour/analyzeBehaviour";
+import { EXPOSURE_RULES } from "../exposure/rules";
 import {
   SUPPORTED_CHAINS,
   detectChainFromAddress,
@@ -262,16 +263,27 @@ export async function evaluateTransactionRisk({
     ...(recipientEntity?.checkGaps || []).map((g) => `Recipient: ${g}`),
   ];
   if (exposure?.coverage.status === "unavailable") {
-    checkGaps.push(...exposure.coverage.errors.map((e) => `Counterparty trace did not run. ${e}`));
+    // Providers append their raw JSON body ("HTTP 401 Unauthorized: {"jsonrpc":...}"); keep the readable part.
+    checkGaps.push(...exposure.coverage.errors.map((e) => `Counterparty trace did not run. ${e.replace(/:\s*[{[][\s\S]*$/, "")}.`));
   }
   if (riskLevel === "LOW" && checkGaps.length) {
     riskLevel = "UNKNOWN";
     recommendedAction = "RETRY_OR_MANUAL_REVIEW";
     badgeColor = "#64748B";
   }
+  // A busy wallet is screened on its newest transfers only, so older contact with a listed wallet
+  // can't show. Still LOW (retrying won't read more), but never a plain "OK to transact".
+  const partialHistory = riskLevel === "LOW" && !!exposure?.coverage.hop1?.truncated;
+  if (partialHistory) recommendedAction = "APPROVE_WITH_CAUTION";
 
   // 8. Generate Glass Box Rationale Summary
-  let summaryText = `Transaction of ${formatUsdt(amountUsdt)} on ${chainConfig.name} (${chainConfig.standard}) passed screening with low risk indicators.`;
+  let summaryText =
+    Number(amountUsdt) > 0
+      ? `Transaction of ${formatUsdt(amountUsdt)} on ${chainConfig.name} (${chainConfig.standard}) passed screening with low risk indicators.`
+      : `Wallet passed screening on ${chainConfig.name} (${chainConfig.standard}): not on any list, and no significant exposure found.`;
+  // Which wallet the listing belongs to: the screened (sending) wallet, or the recipient.
+  const who = isSenderFlagged || !isRecipientFlagged ? "This wallet" : "The recipient wallet";
+  const listing = riskIndicators.find((i) => i.direction === "ORIGIN") || riskIndicators.find((i) => i.direction === "DESTINATION");
   if (riskLevel === "CRITICAL") {
     const sanctioned = riskIndicators.find(i => i.category === "SANCTIONS_OFAC" || i.category === "SANCTIONS_DESIGNATION");
     const frozen = riskIndicators.find(i => i.category === "TETHER_FROZEN");
@@ -281,28 +293,34 @@ export async function evaluateTransactionRisk({
       const by = sanctioned.providers?.length ? sanctioned.providers.join(", ") : "a government sanctions list";
       summaryText = `CRITICAL ALERT: Direct interaction with a sanctioned entity on ${chainConfig.name} (designated by ${by}). Immediate freeze required under sanctions compliance regulations.`;
     } else if (frozen && isTetherFreeze) {
-      summaryText = `CRITICAL ALERT: Counterparty wallet is officially blacklisted on-chain by Tether on ${chainConfig.name} (${chainConfig.standard}). USDT transfer attempts will fail or expose the VASP to seized assets.`;
+      summaryText = `CRITICAL ALERT: ${who} is blacklisted on-chain by Tether on ${chainConfig.name} (${chainConfig.standard}). USDT transfer attempts will fail or expose the VASP to seized assets.`;
     } else if (frozen) {
-      summaryText = `CRITICAL ALERT: Counterparty wallet is frozen on-chain by a stablecoin issuer (${frozen.entity}) on ${chainConfig.name}. Treat its funds as seized or illicit.`;
+      summaryText = `CRITICAL ALERT: ${who} is frozen on-chain by a stablecoin issuer (${frozen.entity}) on ${chainConfig.name}. Treat its funds as seized or illicit.`;
     } else {
       summaryText = `CRITICAL ALERT: Direct interaction with high-risk illicit finance entity on ${chainConfig.name}. Immediate compliance intervention required.`;
     }
-  } else if (riskLevel === "HIGH") {
-    summaryText = `HIGH RISK: Transaction on ${chainConfig.name} exhibits direct or layered exposure to fraudulent operations (scam compound, drainer, or hack exploit). Mandatory SAR review required.`;
-  } else if (riskLevel === "MEDIUM") {
-    summaryText = `MEDIUM RISK: Counterparty on ${chainConfig.name} identified as unlicensed shadow broker or high-risk OTC liquidity pool. Enhanced Due Diligence (EDD) recommended.`;
+  } else if ((riskLevel === "HIGH" || riskLevel === "MEDIUM") && listing) {
+    // Listed by an OSINT / mixer list (scam, hack, mixer): name what it is listed as, and by whom.
+    const action = riskLevel === "HIGH" ? "Mandatory SAR review required." : "Enhanced Due Diligence (EDD) recommended.";
+    const by = listing.providers?.length ? ` (source: ${listing.providers.join(", ")})` : "";
+    summaryText = `${riskLevel} RISK on ${chainConfig.name}: ${who.toLowerCase()} is listed as ${listing.categoryLabel}: ${listing.entity}${by}. ${action}`;
   }
   // When the level comes from counterparty exposure (not the wallet's own listing), say so.
-  if (topExposure && topExposure.score === highestScore && riskLevel !== "CRITICAL") {
+  if (!listing && topExposure && topExposure.score === highestScore && riskLevel !== "CRITICAL") {
     const more = exposure.indicators.length - 1;
     const action = { HIGH: "Mandatory SAR review required.", MEDIUM: "Enhanced Due Diligence (EDD) recommended.", LOW: "Noted for context; no action required." }[riskLevel];
     summaryText =
       `${riskLevel} RISK on ${chainConfig.name}: wallet is not listed itself, but has counterparty exposure. ${topExposure.reason}` +
       (more > 0 ? ` (+${more} more exposure finding${more > 1 ? "s" : ""}.)` : "") +
       ` ${action}`;
-  } else if (topBehaviour && topBehaviour.score === highestScore && (riskLevel === "HIGH" || riskLevel === "MEDIUM")) {
+  } else if (!listing && topBehaviour && topBehaviour.score === highestScore && (riskLevel === "HIGH" || riskLevel === "MEDIUM")) {
     const action = { HIGH: "Mandatory SAR review required.", MEDIUM: "Enhanced Due Diligence (EDD) recommended." }[riskLevel];
     summaryText = `${riskLevel} RISK on ${chainConfig.name}: suspicious behaviour. ${topBehaviour.reason} ${action}`;
+  }
+  if (partialHistory) {
+    summaryText +=
+      ` Partial check: this wallet has more than ${EXPOSURE_RULES.historyLimit.toLocaleString()} USDT transfers in a direction, ` +
+      `and only the newest ${EXPOSURE_RULES.historyLimit.toLocaleString()} were screened. Older contact with listed wallets would not show.`;
   }
   if (riskLevel === "UNKNOWN") {
     summaryText =
@@ -357,6 +375,7 @@ export async function evaluateTransactionRisk({
       : null,
     riskIndicators: riskIndicators,
     checkGaps,
+    partialHistory,
     exposure: exposure ? exposure.coverage : null,
     exposureGraph: exposure?.graph || null,
     networkFindings,
